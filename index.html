@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>대박통신 — 단가표 (Logo Upload • Cloud AutoSave • PNG Fix)</title>
+  <!-- v2025-08-29a: 로고 직접 업로드 + 상태동기화 / 기존 기능들 그대로 유지 -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <style>
+    :root{ --brand:#0D47A1; --brand-2:#1565C0; --ink:#0a0a0a; --muted:#4b5563; --line:#e5e7eb; --bg:#ffffff; --gutter: 8px; }
+    *{box-sizing:border-box}
+    html,body{margin:0;background:#f6f8fb;color:var(--ink);font-family:"Noto Sans KR", system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif}
+    .page-wrap{display:flex;justify-content:center;padding:20px}
+    .sheet{width:780px;max-width:100%;background:var(--bg);box-shadow:0 10px 30px rgba(0,0,0,.08);border-radius:14px;overflow:hidden}
+    .toolbar{position:sticky;top:0;z-index:1000;display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:center;padding:10px;background:#ffffffcc;backdrop-filter:saturate(150%) blur(6px);border-bottom:1px solid var(--line)}
+    .btn{appearance:none;border:1px solid #cbd5e1;background:white;border-radius:10px;padding:10px 14px;font-weight:700;cursor:pointer}
+    .btn.primary{background:var(--brand);color:#fff;border-color:var(--brand)}
+    .btn.small{padding:7px 10px;font-size:.9rem}
+    .head{padding:18px 22px 8px;border-bottom:4px solid var(--brand)}
+    .head-top{display:flex;align-items:center;justify-content:center;gap:16px}
+    .logo{display:flex;align-items:center;justify-content:center;gap:8px;flex-direction:column;width:100%;text-align:center}
+    .logo img{height:42px;width:auto;object-fit:contain;margin:0 auto}
+    .brand-title{font-weight:900;font-size:34px;letter-spacing:-.3px;color:var(--brand);display:none}
+    .slogan{color:var(--muted);font-weight:700}
+    .ribbon{margin-top:10px;background:var(--brand);color:#fff;padding:10px 14px;border-radius:10px;font-weight:700;text-align:center}
+    .notice{margin:10px 22px 14px;display:grid;gap:6px;color:#334155;font-size:13px}
+    .notice p{margin:0}
+    .section-title{margin:16px 18px 8px;padding:10px 12px;border:2px solid var(--brand);border-radius:10px;font-weight:900;color:var(--brand);display:flex;align-items:center;justify-content:space-between}
+    .section-title small{color:var(--muted);font-weight:700}
+    .tbl-wrap{margin:0 18px 14px;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+    table.pricetable{width:100%;border-collapse:separate;border-spacing:0;table-layout:fixed}
+    .pricetable thead th{background:#f8fafc;color:#111827;font-weight:900;border-bottom:1px solid var(--line);padding:12px 8px}
+    .pricetable tbody td{padding:10px 8px;border-bottom:1px solid var(--line);text-align:center;font-weight:700}
+    .pricetable tbody tr:hover{background:#fbfdff}
+    .pricetable .model{font-weight:900}
+    .pricetable thead th.model{ text-align:center }
+    .pricetable tbody td.model{ text-align:left }
+    .pricetable.cols-7 col.col-model{width:34%}
+    .pricetable.cols-7 col.col-s{width:11%}
+    .pricetable.cols-7 col.col-tools{width:0}
+    .editing .pricetable.cols-7 col.col-tools{width:96px}
+    .del-col{width:0}
+    .row-tools{display:none;gap:6px;justify-content:center}
+    .rowbtn{border:none;border-radius:8px;padding:6px 8px;font-weight:700;cursor:pointer}
+    .rowbtn.add{background:#10b981;color:#fff}
+    .rowbtn.del{background:#ef4444;color:#fff}
+    .editing .row-tools{display:inline-flex}
+    .editing .del-col{width:96px}
+    .carrier-plan{margin:0 18px 14px}
+    .carrier-plan .pricetable thead th{background:#f8fafc}
+    .carrier-plan .pricetable thead tr.plan-row th{background:#fff}
+    .cta{margin:18px;display:grid;gap:8px;background:linear-gradient(90deg,var(--brand),var(--brand-2));color:#fff;padding:18px;border-radius:12px;text-align:center}
+    .cta h3{margin:0;font-weight:900;letter-spacing:-.3px}
+    .cta p{margin:0;font-weight:700}
+    .carrier-notes{margin:10px 18px 24px;display:grid;gap:10px}
+    .card{border:1px solid var(--line);border-radius:12px;padding:12px}
+    .card b{color:var(--brand)}
+    .foot{padding:18px;text-align:center;color:#6b7280;font-size:12px}
+    .editing [contenteditable="true"]{outline:2px dashed rgba(13,71,161,.35);outline-offset:2px;border-radius:8px}
+    @media (max-width:860px){ .sheet{border-radius:0;box-shadow:none} .head{padding:16px} .brand-title{font-size:28px} .pricetable thead th,.pricetable tbody td{padding:10px 6px} }
+    @media print{ body{background:#fff} .toolbar{display:none !important} .page-wrap{padding:0} .sheet{box-shadow:none;border-radius:0;width:100%} }
+    .pricetable.cols-7 thead th:nth-child(3), .pricetable.cols-7 tbody td:nth-child(3), .pricetable.cols-7 thead th:nth-child(5), .pricetable.cols-7 tbody td:nth-child(5){ border-right: var(--gutter) solid transparent; }
+    .pricetable.plan thead th:nth-child(2), .pricetable.plan thead th:nth-child(3), .pricetable.plan tbody td:nth-child(2), .pricetable.plan tbody td:nth-child(3){ border-right: var(--gutter) solid transparent; }
+    .plan-two{display:flex;flex-direction:column;align-items:center;gap:2px;line-height:1.15}
+    .plan-two .plan-name{font-weight:900}
+    .plan-two .plan-price{font-weight:700;color:#334155;font-size:12px}
+    .hint{margin:10px 22px 14px;color:#334155;font-size:13px}
+    .pricetable tbody td.low{ color:#FF0000; font-weight: 900; }
+    .pricetable tbody td.mid{ color:#0055FF; font-weight: 900; }
+    .carrier-plan .pricetable th, .carrier-plan .pricetable td{ text-align:center; vertical-align:middle; }
+    .plan-cell{ text-align:center; }
+    /* 로고 업로드 툴 */
+    .logo-tools{display:none;gap:8px;align-items:center;justify-content:center;margin-top:6px}
+    .editing .logo-tools{display:flex}
+    .logo-tools .file{display:none}
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <button class="btn primary" id="toggleEdit" type="button">편집 켜기</button>
+    <button class="btn" id="downloadPNG" type="button">PNG로 저장</button>
+    <button class="btn" id="syncPrices" type="button">가격 업데이트</button>
+  </div>
+
+  <div class="page-wrap">
+    <main id="sheet" class="sheet">
+      <header class="head">
+        <div class="head-top">
+          <div class="logo">
+            <img id="brandLogo" src="logo.png?v=__TS__" alt="대박통신 로고" class="brand-image">
+            <div class="logo-tools" aria-label="로고 도구">
+              <label class="btn small" for="logoFile">로고 업로드</label>
+              <input class="file" id="logoFile" type="file" accept="image/*" />
+              <button class="btn small" id="logoReset" type="button" title="업로드 로고 제거">로고 초기화</button>
+            </div>
+            <div>
+              <div class="slogan" contenteditable="false">대한민국 대표 휴대폰 성지</div>
+              <div class="brand-title" contenteditable="false">대박통신</div>
+            </div>
+          </div>
+        </div>
+        <div class="ribbon" contenteditable="false">정직하게 거래하는 휴대폰 성지 — 가격·정책·설명 모두 투명 공개</div>
+      </header>
+
+      <section class="notice">
+        <p contenteditable="false">가격 언급 시 상담 종료입니다. 기본적인 매너와 센스 부탁드립니다.</p>
+        <p contenteditable="false">당일 개통이 원칙이나, 업체 및 통신사 사정으로 2~3일 지연될 수 있습니다.</p>
+        <p contenteditable="false">요금제 사용 기간 공시 6개월(185일) / 선택 4개월(130일)</p>
+        <p contenteditable="false">시세표 금액은 공시 지원금 기준이며, 선택약정 희망 시 <b>별도 문의</b> 바랍니다.</p>
+        <p contenteditable="false">위약금 및 결합 관련은 미리 114(고객센터) 조회 후 방문 부탁드립니다.</p>
+      </section>
+
+      <section class="tbl-wrap carrier-plan">
+        <table class="pricetable cols-7 plan" aria-label="요금제 안내" id="tbl-plan">
+          <colgroup>
+            <col class="col-model"><col class="col-s"><col class="col-s"><col class="col-s"><col class="col-s"><col class="col-s"><col class="col-s">
+          </colgroup>
+          <thead>
+            <tr>
+              <th class="model">통신사</th>
+              <th colspan="2">SKT</th>
+              <th colspan="2">KT</th>
+              <th colspan="2">LGU+</th>
+            </tr>
+            <tr class="plan-row">
+              <th class="model">요금제</th>
+              <th colspan="2" class="plan-cell">
+                <div class="plan-two">
+                  <span class="plan-name">5GX 프리미엄</span>
+                  <small class="plan-price">(109,000원)</small>
+                </div>
+              </th>
+              <th colspan="2" class="plan-cell">
+                <div class="plan-two">
+                  <span class="plan-name">초이스 스페셜</span>
+                  <small class="plan-price">(110,000원)</small>
+                </div>
+              </th>
+              <th colspan="2" class="plan-cell">
+                <div class="plan-two">
+                  <span class="plan-name">5G 프리미어 슈퍼</span>
+                  <small class="plan-price">(115,000원)</small>
+                </div>
+              </th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </section>
+
+      <h2 class="section-title" data-key="iPhone17">iPhone17</h2>
+      <section class="tbl-wrap">
+        <table class="pricetable cols-7" id="tbl-iphone17">
+          <colgroup>
+            <col class="col-model"><col class="col-s"><col class="col-s"><col class="col-s"><col class="col-s"><col class="col-s"><col class="col-s"><col class="col-tools">
+          </colgroup>
+          <thead>
+            <tr>
+              <th class="model">모델</th>
+              <th>SK 이동</th><th>SK 기변</th>
+              <th>KT 이동</th><th>KT 기변</th>
+              <th>LG 이동</th><th>LG 기변</th>
+              <th class="del-col"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="model"><span class="fit-one-line" data-min="12">갤럭시 플립7 256G <b>(New)</b></span></td>
+              <td>28</td><td>48</td>
+              <td>18</td><td>6</td>
+              <td>8</td><td>8</td>
+              <td class="del-col"><div class="row-tools"><button class="rowbtn add" onclick="addRowAfter(this)">추가</button><button class="rowbtn del" onclick="removeRow(this)">삭제</button></div></td>
+            </tr>
+            <tr>
+              <td class="model"><span class="fit-one-line" data-min="12">갤럭시 플립7 512G <b>(New)</b></span></td>
+              <td>44</td><td>29</td>
+              <td>48</td><td>19</td>
+              <td>24</td><td>24</td>
+              <td class="del-col"><div class="row-tools"><button class="rowbtn add" onclick="addRowAfter(this)">추가</button><button class="rowbtn del" onclick="removeRow(this)">삭제</button></div></td>
+            </tr>
+            <tr>
+              <td class="model"><span class="fit-one-line" data-min="12">갤럭시 폴드7 256G <b>(New)</b></span></td>
+              <td>118</td><td>133</td>
+              <td>108</td><td>96</td>
+              <td>98</td><td>110</td>
+              <td class="del-col"><div class="row-tools"><button class="rowbtn add" onclick="addRowAfter(this)">추가</button><button class="rowbtn del" onclick="removeRow(this)">삭제</button></div></td>
+            </tr>
+            <tr>
+              <td class="model"><span class="fit-one-line" data-min="12">갤럭시 폴드7 512G <b>(New)</b></span></td>
+              <td>134</td><td>149</td>
+              <td>124</td><td>112</td>
+              <td>114</td><td>126</td>
+              <td class="del-col"><div class="row-tools"><button class="rowbtn add" onclick="addRowAfter(this)">추가</button><button class="rowbtn del" onclick="removeRow(this)">삭제</button></div></td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <h2 class="section-title" data-key="fold">SAMSUNG 폴더블 7 Series</h2>
+      <section class="tbl-wrap">
+        <table class="pricetable cols-7" id="tbl-fold">
+          <colgroup>
+            <col class="col-model"><col class="col-s"><col class="col-s"><col class="col-s"><col class="col-s"><col class="col-s"><col class="col-s"><col class="col-tools">
+          </colgroup>
+          <thead>
+            <tr>
+              <th class="model">모델</th>
+              <th>SK 이동</th><th>SK 기변</th>
+              <th>KT 이동</th><th>KT 기변</th>
+              <th>LG 이동</th><th>LG 기변</th>
+              <th class="del-col"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="model"><span class="fit-one-line" data-min="12">갤럭시 플립7 256G <b>(New)</b></span></td>
+              <td>28</td><td>48</td>
+              <td>18</td><td>6</td>
+              <td>8</td><td>8</td>
+              <td class="del-col"><div class="row-tools"><button class="rowbtn add" onclick="addRowAfter(this)">추가</button><button class="rowbtn del" onclick="removeRow(this)">삭제</button></div></td>
+            </tr>
+            <tr>
+              <td class="model"><span class="fit-one-line" data-min="12">갤럭시 플립7 512G <b>(New)</b></span></td>
+              <td>44</td><td>29</td>
+              <td>48</td><td>19</td>
+              <td>24</td><td>24</td>
+              <td class="del-col"><div class="row-tools"><button class="rowbtn add" onclick="addRowAfter(this)">추가</button><button class="rowbtn del" onclick="removeRow(this)">삭제</button></div></td>
+            </tr>
+            <tr>
+              <td class="model"><span class="fit-one-line" data-min="12">갤럭시 폴드7 256G <b>(New)</b></span></td>
+              <td>118</td><td>133</td>
+              <td>108</td><td>96</td>
+              <td>98</td><td>110</td>
+              <td class="del-col"><div class="row-tools"><button class="rowbtn add" onclick="addRowAfter(this)">추가</button><button class="rowbtn del" onclick="removeRow(this)">삭제</button></div></td>
+            </tr>
+            <tr>
+              <td class="model"><span class="fit-one-line" data-min="12">갤럭시 폴드7 512G <b>(New)</b></span></td>
+              <td>134</td><td>149</td>
+              <td>124</td><td>112</td>
+              <td>114</td><td>126</td>
+              <td class="del-col"><div class="row-tools"><button class="rowbtn add" onclick="addRowAfter(this)">추가</button><button class="rowbtn del" onclick="removeRow(this)">삭제</button></div></td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <h2 class="section-title" data-key="s25">SAMSUNG S25 Series</h2>
+      <section class="tbl-wrap">
+        <table class="pricetable cols-7" id="tbl-s25">
+          <colgroup>
+            <col class="col-model"><col class="col-s"><col class="col-s"><col class="col-s"><col class="col-s"><col class="col-s"><col class="col-s"><col class="col-tools">
+          </colgroup>
+          <thead>
+            <tr>
+              <th class="model">모델</th>
+              <th>SK 이동</th><th>SK 기변</th>
+              <th>KT 이동</th><th>KT 기변</th>
+              <th>LG 이동</th><th>LG 기변</th>
+              <th class="del-col"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="model"><span class="fit-one-line" data-min="12">갤럭시 S25 256G</span></td>
+              <td>0</td><td>17</td>
+              <td>5</td><td>-10</td>
+              <td>-25</td><td>-32</td>
+              <td class="del-col"><div class="row-tools"><button class="rowbtn add" onclick="addRowAfter(this)">추가</button><button class="rowbtn del" onclick="removeRow(this)">삭제</button></div></td>
+            </tr>
+            <tr>
+              <td class="model"><span class="fit-one-line" data-min="12">갤럭시 S25 EdGE</span></td>
+              <td>35</td><td>52</td>
+              <td>35</td><td>10</td>
+              <td>10</td><td>32</td>
+              <td class="del-col"><div class="row-tools"><button class="rowbtn add" onclick="addRowAfter(this)">추가</button><button class="rowbtn del" onclick="removeRow(this)">삭제</button></div></td>
+            </tr>
+            <tr>
+              <td class="model"><span class="fit-one-line" data-min="12">갤럭시 S25 울트라 256G</span></td>
+              <td>55</td><td>72</td>
+              <td>50</td><td>30</td>
+              <td>30</td><td>52</td>
+              <td class="del-col"><div class="row-tools"><button class="rowbtn add" onclick="addRowAfter(this)">추가</button><button class="rowbtn del" onclick="removeRow(this)">삭제</button></div></td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <h2 class="section-title" data-key="iphone16">Apple iPhone16 Series</h2>
+      <section class="tbl-wrap">
+        <table class="pricetable cols-7" id="tbl-iphone16">
+          <colgroup>
+            <col class="col-model"><col class="col-s"><col class="col-s"><col class="col-s"><col class="col-s"><col class="col-s"><col class="col-s"><col class="col-tools">
+          </colgroup>
+          <thead>
+            <tr>
+              <th class="model">모델</th>
+              <th>SK 이동</th><th>SK 기변</th>
+              <th>KT 이동</th><th>KT 기변</th>
+              <th>LG 이동</th><th>LG 기변</th>
+              <th class="del-col"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="model"><span class="fit-one-line" data-min="12">아이폰16 128G</span></td>
+              <td>6</td><td>29</td>
+              <td>-11</td><td>-1</td>
+              <td>-32</td><td>10</td>
+              <td class="del-col"><div class="row-tools"><button class="rowbtn add" onclick="addRowAfter(this)">추가</button><button class="rowbtn del" onclick="removeRow(this)">삭제</button></div></td>
+            </tr>
+            <tr>
+              <td class="model"><span class="fit-one-line" data-min="12">아이폰16 256G</span></td>
+              <td>21</td><td>44</td>
+              <td>4</td><td>14</td>
+              <td>-17</td><td>25</td>
+              <td class="del-col"><div class="row-tools"><button class="rowbtn add" onclick="addRowAfter(this)">추가</button><button class="rowbtn del" onclick="removeRow(this)">삭제</button></div></td>
+            </tr>
+            <tr>
+              <td class="model"><span class="fit-one-line" data-min="12">아이폰16 플러스 128G</span></td>
+              <td>17</td><td>40</td>
+              <td>15</td><td>20</td>
+              <td>29</td><td>51</td>
+              <td class="del-col"><div class="row-tools"><button class="rowbtn add" onclick="addRowAfter(this)">추가</button><button class="rowbtn del" onclick="removeRow(this)">삭제</button></div></td>
+            </tr>
+            <tr>
+              <td class="model"><span class="fit-one-line" data-min="12">아이폰16 플러스 256G</span></td>
+              <td>32</td><td>55</td>
+              <td>30</td><td>28</td>
+              <td>9</td><td>66</td>
+              <td class="del-col"><div class="row-tools"><button class="rowbtn add" onclick="addRowAfter(this)">추가</button><button class="rowbtn del" onclick="removeRow(this)">삭제</button></div></td>
+            </tr>
+            <tr>
+              <td class="model"><span class="fit-one-line" data-min="12">아이폰16 PRO 128G</span></td>
+              <td>39</td><td>60</td>
+              <td>30</td><td>40</td>
+              <td>42</td><td>56</td>
+              <td class="del-col"><div class="row-tools"><button class="rowbtn add" onclick="addRowAfter(this)">추가</button><button class="rowbtn del" onclick="removeRow(this)">삭제</button></div></td>
+            </tr>
+            <tr>
+              <td class="model"><span class="fit-one-line" data-min="12">아이폰16 PRO 256G</span></td>
+              <td>52</td><td>75</td>
+              <td>40</td><td>45</td>
+              <td>24</td><td>56</td>
+              <td class="del-col"><div class="row-tools"><button class="rowbtn add" onclick="addRowAfter(this)">추가</button><button class="rowbtn del" onclick="removeRow(this)">삭제</button></div></td>
+            </tr>
+            <tr>
+              <td class="model"><span class="fit-one-line" data-min="12">아이폰16 PM 256G</span></td>
+              <td>72</td><td>95</td>
+              <td>60</td><td>65</td>
+              <td>44</td><td>76</td>
+              <td class="del-col"><div class="row-tools"><button class="rowbtn add" onclick="addRowAfter(this)">추가</button><button class="rowbtn del" onclick="removeRow(this)">삭제</button></div></td>
+            </tr>
+            <tr>
+              <td class="model"><span class="fit-one-line" data-min="12">아이폰16e 128G <b>(New)</b></span></td>
+              <td>-21</td><td>4</td>
+              <td>-6</td><td>-6</td>
+              <td>-32</td><td>-26</td>
+              <td class="del-col"><div class="row-tools"><button class="rowbtn add" onclick="addRowAfter(this)">추가</button><button class="rowbtn del" onclick="removeRow(this)">삭제</button></div></td>
+            </tr>
+            <tr>
+              <td class="model"><span class="fit-one-line" data-min="12">아이폰16e 256G <b>(New)</b></span></td>
+              <td>-7</td><td>18</td>
+              <td>8</td><td>8</td>
+              <td>-18</td><td>-12</td>
+              <td class="del-col"><div class="row-tools"><button class="rowbtn add" onclick="addRowAfter(this)">추가</button><button class="rowbtn del" onclick="removeRow(this)">삭제</button></div></td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <p class="hint" contenteditable="false">* 단가는 예시 데이터입니다. 실제 단가로 바꾸어 사용하세요. 음수는 페이백/할인 표시로 유지했습니다.</p>
+
+      <section class="cta">
+        <h3 contenteditable="false">인터넷 + TV + 휴대폰 최대 100만 지원!!</h3>
+        <p contenteditable="false">SK 80 · KT 80 · LG 100</p>
+      </section>
+
+      <section class="carrier-notes">
+        <div class="card" contenteditable="false"><b>SKT</b> — T ALL 케어 + 마이스마트플러스 + 우주패스 + WAVE / M(망월) 제외 + 3개월 유지</div>
+        <div class="card" contenteditable="false"><b>KT</b> — 필수팩 L1 또는 L2 + 보험 + 디즈니+(스탠다드) / M(망월) 제외 + 3개월 유지</div>
+        <div class="card" contenteditable="false"><b>LGU+</b> — 모두팩 + 유플에이 + 포켓피스 + 듀얼넘버+ / 당월 포함 + 100일 유지</div>
+      </section>
+
+      <footer class="foot">ⓒ <span contenteditable="false">대박통신</span>. 본 자료는 매장 안내용입니다.</footer>
+    </main>
+  </div>
+
+  <script>
+    const sheet = document.getElementById('sheet');
+    const toggleBtn = document.getElementById('toggleEdit');
+
+    const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbxe4hOMH07hxE-_1nByAZY-0LE-uDYqLCrCXtaqZNxqP4VO4p0kjidegG1mALuoIDE5pw/exec';
+
+    const STATE_SYNC = {
+      docId: 'dbp-0827-main',
+      api: { url: WEBAPP_URL },
+      cacheKey: 'DBP_STATE_CACHE_V2'
+    };
+
+    function debounce(fn, ms){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; }
+
+    toggleBtn.addEventListener('click', async () => {
+      const editing = sheet.classList.toggle('editing');
+      toggleBtn.textContent = editing ? '편집 저장' : '편집 켜기';
+      if(!editing){ try{ await saveStateToCloud(); __toast && __toast('저장 완료'); }catch(e){ console.warn(e); } }
+      sheet.querySelectorAll('td, h2.section-title, .ribbon, .notice p, .cta h3, .cta p, .slogan, .brand-title, .card, .hint, .fit-one-line, .foot span').forEach(el => {
+        if (el.closest && el.closest('.del-col')) return;
+        el.setAttribute('contenteditable', editing ? 'true' : 'false');
+      });
+    });
+
+    function addRowAfter(btn){
+      const tr = btn.closest('tr');
+      const tbody = tr.parentElement;
+      const newTr = document.createElement('tr');
+      newTr.innerHTML = `
+        <td class="model"><span class="fit-one-line" data-min="12">새 모델명</span></td>
+        <td>0</td><td>0</td>
+        <td>0</td><td>0</td>
+        <td>0</td><td>0</td>
+        <td class="del-col"><div class="row-tools"><button class="rowbtn add" onclick="addRowAfter(this)">추가</button><button class="rowbtn del" onclick="removeRow(this)">삭제</button></div></td>`;
+      tbody.insertBefore(newTr, tr.nextSibling);
+      fitAll(); applyNumberStyles(); saveStateLater('row-add');
+    }
+    function removeRow(btn){ btn.closest('tr').remove(); saveStateLater('row-del'); }
+    window.addRowAfter = addRowAfter; window.removeRow = removeRow;
+
+    const saveStateLater = debounce(()=>saveStateToCloud(), 800);
+    sheet.addEventListener('input', ()=>{ fitAll(); applyNumberStyles(); saveStateLater(); });
+
+    function fitOne(el){
+      const span = el.querySelector('.fit-one-line');
+      if(!span) return;
+      const min = +span.dataset.min || 11;
+      let size = parseFloat(getComputedStyle(span).fontSize);
+      span.style.whiteSpace = 'nowrap';
+      span.style.display = 'inline-block';
+      const limitW = el.clientWidth - 6;
+      const lh = parseFloat(getComputedStyle(span).lineHeight);
+      while((span.scrollWidth > limitW || span.offsetHeight > lh*1.2) && size > min){ size -= .5; span.style.fontSize = size + 'px'; }
+    }
+    function fitAll(){ document.querySelectorAll('td.model, td').forEach(td => fitOne(td)); }
+    function applyNumberStyles(){
+      document.querySelectorAll('table.pricetable tbody td:not(.model):not(.del-col)').forEach(td=>{
+        const text = td.textContent.trim().replace(/,/g,'');
+        const num = Number(text);
+        td.classList.remove('neg','low','mid');
+        if(!Number.isNaN(num)){
+          if(num < 10){ td.classList.add('low'); }
+          else if(num < 20){ td.classList.add('mid'); }
+        }
+      });
+    }
+    window.addEventListener('load', ()=>{ fitAll(); applyNumberStyles(); });
+    window.addEventListener('resize', fitAll);
+
+    (function(){
+      const btn = document.getElementById('downloadPNG');
+      btn.addEventListener('click', async () => {
+        try{
+          const wasEditing = sheet.classList.contains('editing');
+          if(wasEditing){ toggleBtn.click(); }
+          if(document.fonts && document.fonts.ready){ try{ await document.fonts.ready; }catch(_){}}
+
+          const imgs = Array.from(sheet.querySelectorAll('img'));
+          const restores = [];
+          imgs.forEach(img=>{
+            const isAnon = (img.getAttribute('crossorigin')||'').toLowerCase()==='anonymous';
+            const sameOrigin = img.src.startsWith(location.origin) || img.src.startsWith('data:');
+            if(!isAnon && !sameOrigin){ restores.push([img, img.style.visibility]); img.style.visibility = 'hidden'; }
+          });
+
+          const canvas = await html2canvas(sheet, {
+            backgroundColor:'#ffffff',
+            scale:2,
+            useCORS:true,
+            allowTaint:false,
+            windowWidth: sheet.scrollWidth,
+            windowHeight: sheet.scrollHeight
+          });
+
+          restores.forEach(([img, v])=>{ img.style.visibility = v || ''; });
+
+          // ▼▼▼ ribbon 날짜를 이용한 파일명 생성 + 앞에 6칸 공백 ▼▼▼
+          const ribbonText = document.querySelector('.ribbon')?.textContent || '';
+          const m = ribbonText.match(/(\d+)\s*월\s*(\d+)\s*일/);
+          let filename = '대박통신_단가표.png';
+          if (m) {
+            const month = m[1];
+            const day = m[2];
+            filename = `대박통신_${month}월${day}일_단가표.png`;
+          }
+          // ▲▲▲ 추가 끝 ▲▲▲
+
+          const link = document.createElement('a');
+          link.download = filename;
+          link.href = canvas.toDataURL('image/png');
+          link.click();
+
+          if(wasEditing){ toggleBtn.click(); }
+        }catch(e){
+          console.error(e);
+          alert('PNG 저장 중 오류가 발생했습니다. 로고/이미지 경로나 CORS를 확인해 주세요.');
+        }
+      });
+      window.addEventListener('beforeprint', ()=>{ if(sheet.classList.contains('editing')) toggleBtn.click(); });
+    })();
+  </script>
+
+  <script>
+    const PRICE_SYNC = { method:'apps_script', sheetName:'단가표', api:{ url: WEBAPP_URL } };
+    function normalizeKey(s){ if(!s) return ''; return String(s).split('(New)').join('').replaceAll(' ','').trim(); }
+    function toDataMapFromApi(data){ const map = new Map(); const rows = (data && data.items) ? data.items : []; rows.forEach(r=>{ if(!r) return; const model = r.model ?? r['모델']; if(!model) return; const rec = { model, sk_move: r.sk_move ?? r['SK 이동'], sk_keep: r.sk_keep ?? r['SK 기변'], kt_move: r.kt_move ?? r['KT 이동'], kt_keep: r.kt_keep ?? r['KT 기변'], lg_move: r.lg_move ?? r['LG 이동'], lg_keep: r.lg_keep ?? r['LG 기변'] }; map.set(normalizeKey(model+''), rec); }); return map; }
+    function __jsonp(url){
+      return new Promise((resolve, reject)=>{ const cb = 'PRICE_JSONP_' + Date.now(); let timer; const cleanup = ()=>{ try{ clearTimeout(timer); delete window[cb]; s && s.remove(); }catch(e){} }; window[cb] = (data)=>{ cleanup(); resolve(data); }; const s = document.createElement('script'); s.src = url + (url.includes('?')?'&':'?') + 'callback=' + cb + '&t=' + Date.now(); s.onerror = ()=>{ cleanup(); reject(new Error('JSONP 로드 실패')); }; document.head.appendChild(s); timer = setTimeout(()=>{ cleanup(); reject(new Error('JSONP 타임아웃')); }, 10000); });
+    }
+    async function fetchPricesAppsScript(){ const base = PRICE_SYNC.api.url + '?action=price&sheet=' + encodeURIComponent(PRICE_SYNC.sheetName||''); try{ return await __jsonp(base); }catch(_){ } try{ const res = await fetch(base + '&t=' + Date.now(), {cache:'no-store'}); if(!res.ok) throw new Error('API 응답 오류'); return await res.json(); }catch(err){ throw err; } }
+    function updateTablesFromMap(map){ document.querySelectorAll('table.pricetable:not(.plan) tbody tr').forEach(tr=>{ const modelCell = tr.querySelector('td.model'); const modelText = modelCell ? modelCell.textContent : ''; const key = normalizeKey(modelText); if(!map.has(key)) return; const rec = map.get(key); const fields = ['sk_move','sk_keep','kt_move','kt_keep','lg_move','lg_keep']; fields.forEach((f, idx)=>{ const td = tr.querySelectorAll('td')[idx+1]; if(!td) return; let v = rec[f]; if(v===undefined || v===null || v==='') return; if(typeof v === 'string'){ v = v.split('').filter(ch => '0123456789.-'.includes(ch)).join(''); } const num = Number(v); td.textContent = Number.isFinite(num) ? (Number.isInteger(num)? String(num) : Math.round(num).toString()) : String(v); }); }); applyNumberStyles(); fitAll(); }
+    document.addEventListener('DOMContentLoaded', ()=>{ const btnSync = document.getElementById('syncPrices'); if(!btnSync) return; btnSync.addEventListener('click', async ()=>{ const label = btnSync.textContent; btnSync.disabled = true; btnSync.textContent = '업데이트 중…'; try{ const raw = await fetchPricesAppsScript(); const map = toDataMapFromApi(raw); updateTablesFromMap(map); btnSync.textContent = '업데이트 완료'; }catch(err){ console.error(err); alert('가격 동기화 실패: ' + (err && err.message ? err.message : err)); btnSync.textContent = label; btnSync.disabled = false; return; } await saveStateToCloud(); setTimeout(()=>btnSync.textContent = label, 1200); btnSync.disabled = false; }); });
+  </script>
+
+  <script>
+    function collectTable(id){ const table = document.getElementById(id); if(!table) return []; const rows = []; table.querySelectorAll('tbody tr').forEach(tr=>{ const tds = Array.from(tr.querySelectorAll('td')); if(!tds.length) return; rows.push({ model: (tds[0]?.textContent||'').trim(), sk_move: (tds[1]?.textContent||'').trim(), sk_keep: (tds[2]?.textContent||'').trim(), kt_move: (tds[3]?.textContent||'').trim(), kt_keep: (tds[4]?.textContent||'').trim(), lg_move: (tds[5]?.textContent||'').trim(), lg_keep: (tds[6]?.textContent||'').trim(), }); }); return rows; }
+    function applyTable(id, rows){ const table = document.getElementById(id); if(!table || !Array.isArray(rows)) return; const tb = table.querySelector('tbody'); tb.innerHTML = ''; rows.forEach(r=>{ const tr = document.createElement('tr'); tr.innerHTML = `
+          <td class="model"><span class="fit-one-line" data-min="12">${r.model||''}</span></td>
+          <td>${r.sk_move??''}</td><td>${r.sk_keep??''}</td>
+          <td>${r.kt_move??''}</td><td>${r.kt_keep??''}</td>
+          <td>${r.lg_move??''}</td><td>${r.lg_keep??''}</td>
+          <td class="del-col"><div class="row-tools"><button class="rowbtn add" onclick="addRowAfter(this)">추가</button><button class="rowbtn del" onclick="removeRow(this)">삭제</button></div></td>`; tb.appendChild(tr); }); fitAll(); applyNumberStyles(); }
+    function collectSectionTitles(){ const titles = {}; document.querySelectorAll('h2.section-title').forEach(h=>{ const key = h.getAttribute('data-key') || h.textContent.trim(); titles[key] = h.innerHTML; }); return titles; }
+    function applySectionTitles(titles){ if(!titles) return; document.querySelectorAll('h2.section-title').forEach(h=>{ const key = h.getAttribute('data-key') || h.textContent.trim(); if(titles[key]){ h.innerHTML = titles[key]; } }); }
+    function collectState(){ return { _v: 4, docId: STATE_SYNC.docId, updatedAt: Date.now(), slogan: document.querySelector('.slogan')?.textContent || '', brandTitle: document.querySelector('.brand-title')?.textContent || '', ribbon: document.querySelector('.ribbon')?.innerHTML || '', notices: Array.from(document.querySelectorAll('.notice p')).map(p=>p.innerHTML), plan: { sk: { name: document.querySelector('#tbl-plan .plan-row .plan-cell:nth-child(2) .plan-name')?.textContent||'', price: document.querySelector('#tbl-plan .plan-row .plan-cell:nth-child(2) .plan-price')?.textContent||'' }, kt: { name: document.querySelector('#tbl-plan .plan-row .plan-cell:nth-child(3) .plan-name')?.textContent||'', price: document.querySelector('#tbl-plan .plan-row .plan-cell:nth-child(3) .plan-price')?.textContent||'' }, lg: { name: document.querySelector('#tbl-plan .plan-row .plan-cell:nth-child(4) .plan-name')?.textContent||'', price: document.querySelector('#tbl-plan .plan-row .plan-cell:nth-child(4) .plan-price')?.textContent||'' }, }, tables: { iphone17: collectTable('tbl-iphone17'), fold: collectTable('tbl-fold'), s25: collectTable('tbl-s25'), iphone16: collectTable('tbl-iphone16') }, sections: collectSectionTitles(), cta: { title: document.querySelector('.cta h3')?.textContent || '', sub: document.querySelector('.cta p')?.textContent || '' }, cards: Array.from(document.querySelectorAll('.carrier-notes .card')).map(c=>c.innerHTML), footBrand: document.querySelector('.foot span')?.textContent || '', hintHtml: document.querySelector('.hint')?.innerHTML || '', logoDataUrl: document.getElementById('brandLogo')?.dataset.userLogo === '1' ? document.getElementById('brandLogo').src : '' }; }
+    function applyState(s){ try{ if(!s) return; if(s.slogan) document.querySelector('.slogan').textContent = s.slogan; if(s.brandTitle) document.querySelector('.brand-title').textContent = s.brandTitle; if(s.ribbon) document.querySelector('.ribbon').innerHTML = s.ribbon; if(Array.isArray(s.notices)){ const box = document.querySelector('.notice'); box.innerHTML=''; s.notices.forEach(html=>{ const p=document.createElement('p'); p.innerHTML = html; p.setAttribute('contenteditable','false'); box.appendChild(p); }); } if(s.plan){ const skn = document.querySelector('#tbl-plan .plan-row .plan-cell:nth-child(2) .plan-name'); if(s.plan.sk?.name) skn.textContent = s.plan.sk.name; const skp = document.querySelector('#tbl-plan .plan-row .plan-cell:nth-child(2) .plan-price'); if(s.plan.sk?.price) skp.textContent = s.plan.sk.price; const ktn = document.querySelector('#tbl-plan .plan-row .plan-cell:nth-child(3) .plan-name'); if(s.plan.kt?.name) ktn.textContent = s.plan.kt.name; const ktp = document.querySelector('#tbl-plan .plan-row .plan-cell:nth-child(3) .plan-price'); if(s.plan.kt?.price) ktp.textContent = s.plan.kt.price; const lgn = document.querySelector('#tbl-plan .plan-row .plan-cell:nth-child(4) .plan-name'); if(s.plan.lg?.name) lgn.textContent = s.plan.lg.name; const lgp = document.querySelector('#tbl-plan .plan-row .plan-cell:nth-child(4) .plan-price'); if(s.plan.lg?.price) lgp.textContent = s.plan.lg.price; }
+      if(s.tables){ applyTable('tbl-iphone17', s.tables.iphone17); applyTable('tbl-fold', s.tables.fold); applyTable('tbl-s25', s.tables.s25); applyTable('tbl-iphone16', s.tables.iphone16); }
+      if(s.sections){ applySectionTitles(s.sections); }
+      if(s.cta){ if(s.cta.title) document.querySelector('.cta h3').textContent = s.cta.title; if(s.cta.sub) document.querySelector('.cta p').textContent = s.cta.sub; }
+      if(s.hintHtml){ const h = document.querySelector('.hint'); if(h) h.innerHTML = s.hintHtml; }
+      if(Array.isArray(s.cards)){ const wrap = document.querySelector('.carrier-notes'); wrap.innerHTML=''; s.cards.forEach(html=>{ const d=document.createElement('div'); d.className='card'; d.setAttribute('contenteditable','false'); d.innerHTML = html; wrap.appendChild(d); }); }
+      if(s.footBrand) document.querySelector('.foot span').textContent = s.footBrand;
+      if(s.logoDataUrl){ const img = document.getElementById('brandLogo'); if(img){ img.src = s.logoDataUrl; img.dataset.userLogo = '1'; img.removeAttribute('crossorigin'); } }
+      fitAll(); applyNumberStyles(); }catch(e){ console.warn('applyState 실패', e); }
+    }
+    function saveCache(obj){ try{ localStorage.setItem(STATE_SYNC.cacheKey, JSON.stringify(obj)); }catch(e){} }
+    function loadCache(){ try{ const s = localStorage.getItem(STATE_SYNC.cacheKey); return s ? JSON.parse(s) : null; }catch(e){ return null; }
+    }
+    function sleep(ms){ return new Promise(r=>setTimeout(r, ms)); }
+    async function verifyStateSent(nonce){ try{ const url = `${STATE_SYNC.api.url}?action=state&docId=${encodeURIComponent(STATE_SYNC.docId)}&t=${Date.now()}`; const res = await fetch(url, {cache:'no-store'}); if(!res.ok) return false; const data = await res.json(); return !!(data && data.data && data.data._nonce === nonce); }catch(_){ return false; } }
+    async function saveStateToCloud(){ const body = collectState(); const nonce = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`; body._nonce = nonce; saveCache(body); if(!STATE_SYNC.api?.url || STATE_SYNC.api.url.includes('YOUR_WEBAPP_URL_HERE') || STATE_SYNC.api.url.includes('YOUR_APPS_SCRIPT_WEBAPP_URL')){ console.warn('WEBAPP_URL 미설정 — 로컬 캐시만 저장'); return false; } const payload = { action:'state', docId: STATE_SYNC.docId, data: body };
+      try{ if(navigator.sendBeacon){ const blob = new Blob([JSON.stringify(payload)], {type:'text/plain;charset=UTF-8'}); const ok = navigator.sendBeacon(STATE_SYNC.api.url, blob); if(ok){ await sleep(600); const verified = await verifyStateSent(nonce); if(verified) return true; } } }catch(_){ }
+      try{ await fetch(STATE_SYNC.api.url, { method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify(payload) }); await sleep(700); const verified = await verifyStateSent(nonce); if(verified) return true; }catch(_){ }
+      try{ const compact = encodeURIComponent(JSON.stringify(body)); const putUrl = `${STATE_SYNC.api.url}?action=statePut&docId=${encodeURIComponent(STATE_SYNC.docId)}&d=${compact}`; await new Promise((resolve, reject)=>{ const cb = 'STATEPUT_' + Date.now(); const s = document.createElement('script'); window[cb] = ()=>{ try{ delete window[cb]; s.remove(); }catch(e){}; resolve(); }; s.src = putUrl + `&callback=${cb}`; s.onerror = ()=>{ try{ delete window[cb]; s.remove(); }catch(e){}; reject(new Error('statePut JSONP 실패')); }; document.head.appendChild(s); }); await sleep(500); const verified = await verifyStateSent(nonce); if(verified) return true; }catch(_){ }
+      if(window.__toast) __toast('상태 저장 실패(임시): 네트워크 확인'); return false; }
+    async function loadStateFromCloud(){ const cached = loadCache(); if(cached && cached.docId === STATE_SYNC.docId){ applyState(cached); } if(!STATE_SYNC.api?.url || STATE_SYNC.api.url.includes('YOUR_WEBAPP_URL_HERE')){ return; } const url = `${STATE_SYNC.api.url}?action=state&docId=${encodeURIComponent(STATE_SYNC.docId)}&t=${Date.now()}`; try{ const res = await fetch(url, {cache:'no-store'}); if(res.ok){ const data = await res.json(); if(data && data.data){ applyState(data.data); saveCache(data.data); } } }catch(e){ console.warn('상태 로드 실패', e); } }
+    window.addEventListener('load', ()=>{ loadStateFromCloud(); }, {once:true});
+  </script>
+
+  <script>
+    // 로고 로더 (업로드 우선): 사용자가 업로드한 로고가 없을 때만 같은 폴더의 logo.png 자동 탐색
+    (function(){
+      const el = document.getElementById('brandLogo');
+      if(!el) return;
+
+      // 업로드 핸들러
+      const fileInput = document.getElementById('logoFile');
+      const resetBtn = document.getElementById('logoReset');
+
+      async function readAsDataURL(file){
+        return new Promise((resolve, reject)=>{
+          const fr = new FileReader();
+          fr.onload = ()=> resolve(fr.result);
+          fr.onerror = reject;
+          fr.readAsDataURL(file);
+        });
+      }
+
+      fileInput?.addEventListener('change', async (e)=>{
+        const f = e.target.files && e.target.files[0];
+        if(!f) return;
+        try{
+          const dataUrl = await readAsDataURL(f);
+          el.src = dataUrl; // dataURL은 CORS 문제 없음
+          el.dataset.userLogo = '1';
+          el.removeAttribute('crossorigin');
+          __toast && __toast('로고 업로드 완료');
+          await saveStateToCloud();
+        }catch(err){ console.warn(err); alert('로고 업로드에 실패했습니다. 다른 파일로 시도해 주세요.'); }
+        finally{ fileInput.value=''; }
+      });
+
+      resetBtn?.addEventListener('click', async ()=>{
+        el.dataset.userLogo = '';
+        // 캐시버스터로 동폴더 logo.png 재시도
+        el.src = 'logo.png?v=' + Date.now();
+        __toast && __toast('로고 초기화');
+        await saveStateToCloud();
+      });
+
+      // 업로드가 이미 적용되어 있으면 자동 탐색을 하지 않는다
+      if(el.dataset.userLogo === '1') return;
+
+      // timestamp busting
+      function ts(){ return Date.now().toString(); }
+      function buildCandidates(){
+        const p = window.location.pathname || '/';
+        const parts = p.split('/').filter(Boolean);
+        const bases = ['','./','../'];
+        let acc = '/';
+        for(let i=0;i<parts.length-1;i++){ acc += parts[i] + '/'; bases.push(acc); }
+        bases.push('/');
+        return Array.from(new Set(bases)).map(b => (b||'') + 'logo.png');
+      }
+      const raw = buildCandidates();
+      const cand = []; raw.forEach(u => { cand.push(u); cand.push(u + (u.includes('?')?'&':'?') + 'v=' + ts()); });
+      let idx = 0; const tried = new Set();
+      function next(){
+        if(idx >= cand.length){ el.src = 'logo.png?v=' + ts(); el.addEventListener('error', ()=>{ el.style.display='inline-block'; el.alt='logo.png 로드 실패 — 같은 폴더에 logo.png가 필요합니다'; }, {once:true}); return; }
+        const src = cand[idx++]; if(tried.has(src)) return next(); tried.add(src);
+        const probe = new Image(); probe.onload = ()=>{ el.src = src; }; probe.onerror = next; probe.src = src;
+      }
+      el.addEventListener('error', next, {once:true});
+      // 최초 시도
+      if(!el.src || el.src.includes('__TS__')) el.src = 'logo.png?v=' + ts();
+    })();
+  </script>
+
+  <script>
+    (function(){
+      const style = document.createElement('style');
+      style.textContent = `.toast{position:fixed;top:16px;right:16px;background:rgba(17,24,39,.96);color:#fff;padding:10px 12px;border-radius:8px;font-weight:800;z-index:9999;opacity:0;transform:translateY(-10px);transition:opacity .2s, transform .2s} .toast.show{opacity:1;transform:translateY(0)}`;
+      document.head.appendChild(style);
+      const div = document.createElement('div'); div.id='__toast'; div.className='toast'; document.body.appendChild(div);
+      window.__toast = (msg)=>{ const el = document.getElementById('__toast'); if(!el) return; el.textContent = msg; el.classList.add('show'); setTimeout(()=> el.classList.remove('show'), 1600); };
+    })();
+  </script>
+</body>
+</html>
