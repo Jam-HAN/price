@@ -12,6 +12,17 @@ const EXT_MAP: Record<string, string> = {
 };
 
 export async function POST(req: Request) {
+  try {
+    return await handle(req);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    const stack = e instanceof Error ? e.stack : undefined;
+    console.error('[api/uploads] fatal', msg, stack);
+    return NextResponse.json({ error: msg, where: 'outer', stack }, { status: 500 });
+  }
+}
+
+async function handle(req: Request) {
   const form = await req.formData();
   const vendorId = String(form.get('vendor_id') ?? '');
   const effectiveDate = String(form.get('effective_date') ?? new Date().toISOString().slice(0, 10));
