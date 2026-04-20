@@ -20,7 +20,7 @@ export async function parseSheetImage(params: {
     imageBytes: params.imageBytes,
     prompt,
     schema: SheetExtraction,
-    maxTokens: 16000,
+    maxTokens: 64000,
   });
   return result;
 }

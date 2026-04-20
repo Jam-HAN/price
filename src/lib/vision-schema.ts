@@ -14,11 +14,10 @@ const TierQuote = z.object({
 const ModelTier = z.object({
   plan_tier_code: z
     .string()
-    .describe('내부 코드로 정규화된 요금제 구간. SKT=I_100/F_79/L_69/M_50/R_43/S_33/BASE, KT=T110/T100/T61/T37/SLIM14, LGU+=G115/G105/G95/G85/G75/G69/G61/G55/G44/G33'),
-  plan_tier_raw: z.string().describe('원본 라벨 (예: "F_79 구간", "100K", "95군")'),
-  subsidy_krw: z.number().nullable().describe('요금지원금/공시지원금 (원). 없으면 null'),
-  common: TierQuote.nullable().describe('공통/공시 단가. KT·LGU+처럼 선약 구분 없는 거래처면 이것만'),
-  select: TierQuote.nullable().describe('선약(선택약정) 단가. 제공 안 하면 null'),
+    .describe('내부 코드 요금제 구간. SKT=BASE|I_100|F_79|L_69|M_50|R_43|S_33, KT=T110|T100|SLIM14|T61|T37, LGU+=G115|G105|G95|G85|G69|G55|G33'),
+  subsidy_krw: z.number().nullable(),
+  common: TierQuote.nullable(),
+  select: TierQuote.nullable(),
 });
 
 const ParsedModel = z.object({
