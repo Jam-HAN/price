@@ -47,7 +47,7 @@ async function handle(req: Request) {
 
   const bytes = Buffer.from(await file.arrayBuffer());
   const { path } = await uploadSheetImage({
-    vendorName: vendor.name,
+    vendorId: vendor.id,
     effectiveDate,
     bytes,
     contentType: file.type,

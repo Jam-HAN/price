@@ -3,15 +3,15 @@ import { getSupabaseAdmin } from './supabase';
 const BUCKET = 'price-uploads';
 
 export async function uploadSheetImage(params: {
-  vendorName: string;
+  vendorId: string;
   effectiveDate: string;
   bytes: Buffer | Uint8Array;
   contentType: string;
   extension: string;
 }): Promise<{ path: string }> {
   const sb = getSupabaseAdmin();
-  const safeName = params.vendorName.replace(/[^\p{L}\p{N}_-]/gu, '_');
-  const path = `${params.effectiveDate}/${safeName}_${Date.now()}.${params.extension}`;
+  // Supabase Storage는 key에 ASCII·숫자·하이픈·언더스코어·슬래시만 허용 → vendor id + 타임스탬프로 네이밍
+  const path = `${params.effectiveDate}/${params.vendorId}-${Date.now()}.${params.extension}`;
   const { error } = await sb.storage.from(BUCKET).upload(path, params.bytes, {
     contentType: params.contentType,
     upsert: false,
