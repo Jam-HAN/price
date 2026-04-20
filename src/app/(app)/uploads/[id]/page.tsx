@@ -4,11 +4,11 @@ import { getSupabaseAdmin } from '@/lib/supabase';
 import { signedUrl } from '@/lib/storage';
 import type { SheetExtraction } from '@/lib/vision-schema';
 import { formatKrw } from '@/lib/fmt';
-import { confirmSheet, deleteSheet, updateParsed } from './actions';
+import { confirmSheet, deleteSheet, updateParsed, autoRegisterMissingDevices } from './actions';
 
 export const dynamic = 'force-dynamic';
 
-type SearchParams = Promise<{ confirmed?: string }>;
+type SearchParams = Promise<{ confirmed?: string; auto_registered?: string }>;
 
 export default async function SheetReviewPage({
   params,
@@ -18,7 +18,7 @@ export default async function SheetReviewPage({
   searchParams: SearchParams;
 }) {
   const { id } = await params;
-  const { confirmed } = await searchParams;
+  const { confirmed, auto_registered } = await searchParams;
   const sb = getSupabaseAdmin();
 
   const { data: sheet } = await sb
@@ -86,6 +86,11 @@ export default async function SheetReviewPage({
           ✓ 확정 완료. Net가 매트릭스에 반영됩니다.
         </div>
       ) : null}
+      {auto_registered ? (
+        <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+          ✓ 자동 등록 완료: 신규 모델 {auto_registered.split('_')[0]}개, alias 연결 {auto_registered.split('_')[1] ?? 0}건
+        </div>
+      ) : null}
       {sheet.parse_status === 'error' ? (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           파싱 오류: {sheet.error_message ?? '알 수 없음'}
@@ -116,15 +121,23 @@ export default async function SheetReviewPage({
                   <li>매핑 누락 구간: <span className={unmappedTiers.length ? 'font-bold text-amber-700' : ''}>{new Set(unmappedTiers).size}</span></li>
                 </ul>
                 {unmappedModels.length > 0 ? (
-                  <details className="mt-2 text-xs">
-                    <summary className="cursor-pointer text-amber-700">누락 모델 자세히</summary>
-                    <ul className="mt-1 list-disc pl-5 text-zinc-600">
-                      {unmappedModels.slice(0, 20).map((m) => <li key={m}>{m}</li>)}
-                    </ul>
-                    <p className="mt-2 text-zinc-500">
-                      <Link href="/aliases" className="underline">거래처 코드 매핑</Link>이나 <Link href="/devices" className="underline">모델 마스터</Link>에 등록하면 확정 시 자동 반영됩니다.
-                    </p>
-                  </details>
+                  <>
+                    <details className="mt-2 text-xs">
+                      <summary className="cursor-pointer text-amber-700">누락 모델 자세히 ({unmappedModels.length}개)</summary>
+                      <ul className="mt-1 list-disc pl-5 text-zinc-600">
+                        {unmappedModels.slice(0, 50).map((m) => <li key={m}>{m}</li>)}
+                      </ul>
+                    </details>
+                    <form action={autoRegisterMissingDevices} className="mt-3">
+                      <input type="hidden" name="sheet_id" value={sheet.id} />
+                      <button className="rounded-lg border border-blue-300 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100">
+                        누락 모델 자동 등록 + alias 연결 ({unmappedModels.length}개)
+                      </button>
+                      <p className="mt-1 text-[11px] text-zinc-500">
+                        파싱 결과에서 출고가·nickname·series를 추정해 모델 마스터에 추가하고 거래처 코드를 연결합니다.
+                      </p>
+                    </form>
+                  </>
                 ) : null}
               </div>
 

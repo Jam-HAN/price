@@ -135,6 +135,98 @@ export async function deleteSheet(formData: FormData) {
   redirect('/uploads');
 }
 
+/**
+ * 파싱된 모델 중 내부 마스터에 없는 것들을 자동 등록 + 거래처 alias 추가.
+ * 중복은 스킵. 카테고리는 nickname에서 추정.
+ */
+export async function autoRegisterMissingDevices(formData: FormData) {
+  const sheetId = String(formData.get('sheet_id') ?? '');
+  if (!sheetId) throw new Error('sheet_id 누락');
+  const sb = getSupabaseAdmin();
+  const { data: sheet, error } = await sb
+    .from('price_vendor_quote_sheets')
+    .select('id, vendor_id, raw_ocr_json')
+    .eq('id', sheetId)
+    .single();
+  if (error || !sheet) throw new Error('sheet 조회 실패');
+  const raw = sheet.raw_ocr_json as SheetExtraction | null;
+  if (!raw) throw new Error('파싱 결과 없음');
+
+  const { data: existingAliases } = await sb
+    .from('price_device_aliases')
+    .select('vendor_code, device_id')
+    .eq('vendor_id', sheet.vendor_id);
+  const aliasMap = new Map((existingAliases ?? []).map((a) => [a.vendor_code, a.device_id]));
+  const { data: devices } = await sb.from('price_devices').select('id, model_code, nickname');
+  const deviceByCode = new Map((devices ?? []).map((d) => [d.model_code, d.id]));
+  const deviceByNick = new Map((devices ?? []).map((d) => [d.nickname, d.id]));
+
+  let created = 0;
+  let linked = 0;
+  for (const model of raw.models ?? []) {
+    const already =
+      aliasMap.get(model.model_code_raw) ??
+      deviceByCode.get(model.model_code_raw) ??
+      deviceByNick.get(model.nickname);
+    if (already) continue;
+
+    // 카테고리 추정
+    const n = model.nickname.toLowerCase();
+    let category = '5G';
+    if (n.includes('워치') || n.includes('탭')) category = 'S-D';
+    else if (n.includes('lte') || n.includes('스타일폴더')) category = 'LTE';
+
+    const manufacturer =
+      n.includes('아이폰') || n.includes('iphone') ? 'Apple' : n.includes('갤럭시') ? 'Samsung' : null;
+    const seriesHints: Record<string, string> = {
+      's26': 'galaxyS26',
+      's25': 'galaxyS25',
+      '폴드7': 'fold7',
+      '플립7': 'flip7',
+      '아이폰17': 'iphone17',
+      '아이폰16': 'iphone16',
+      '아이폰 에어': 'iphoneAir',
+    };
+    const series = Object.keys(seriesHints).find((k) => model.nickname.includes(k))
+      ? seriesHints[Object.keys(seriesHints).find((k) => model.nickname.includes(k))!]
+      : null;
+
+    // unique model_code: 거래처 raw 코드 그대로 씀. 충돌 시 뒤에 카운터.
+    let modelCode = model.model_code_raw;
+    if (deviceByCode.has(modelCode)) modelCode = `${modelCode}_${Date.now().toString(36)}`;
+
+    const { data: inserted, error: insErr } = await sb
+      .from('price_devices')
+      .insert({
+        model_code: modelCode,
+        nickname: model.nickname,
+        manufacturer,
+        series,
+        storage: model.storage,
+        retail_price_krw: model.retail_price_krw,
+        category,
+        is_new: model.is_new,
+      })
+      .select('id')
+      .single();
+    if (insErr || !inserted) continue;
+    created++;
+    deviceByCode.set(modelCode, inserted.id);
+    deviceByNick.set(model.nickname, inserted.id);
+
+    const { error: aliasErr } = await sb
+      .from('price_device_aliases')
+      .insert({ device_id: inserted.id, vendor_id: sheet.vendor_id, vendor_code: model.model_code_raw });
+    if (!aliasErr) linked++;
+    aliasMap.set(model.model_code_raw, inserted.id);
+  }
+
+  revalidatePath(`/uploads/${sheetId}`);
+  revalidatePath('/devices');
+  revalidatePath('/aliases');
+  redirect(`/uploads/${sheetId}?auto_registered=${created}_${linked}`);
+}
+
 export async function updateParsed(formData: FormData) {
   const sheetId = String(formData.get('sheet_id') ?? '');
   const json = String(formData.get('raw_ocr_json') ?? '');
