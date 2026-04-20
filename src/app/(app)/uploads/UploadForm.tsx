@@ -5,6 +5,37 @@ import { useRouter } from 'next/navigation';
 
 type Vendor = { id: string; name: string; carrier: string };
 
+const MAX_DIM = 2400;
+const SAFE_BYTES = 4 * 1024 * 1024;
+
+async function maybeResize(file: File): Promise<File> {
+  if (file.size <= SAFE_BYTES) return file;
+  const img = new Image();
+  const url = URL.createObjectURL(file);
+  try {
+    await new Promise<void>((res, rej) => {
+      img.onload = () => res();
+      img.onerror = () => rej(new Error('이미지 로드 실패'));
+      img.src = url;
+    });
+    const scale = Math.min(1, MAX_DIM / Math.max(img.width, img.height));
+    if (scale >= 1 && file.size <= SAFE_BYTES) return file;
+    const w = Math.round(img.width * scale);
+    const h = Math.round(img.height * scale);
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('canvas context 불가');
+    ctx.drawImage(img, 0, 0, w, h);
+    const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, 'image/png', 0.92));
+    if (!blob) throw new Error('캔버스 인코딩 실패');
+    return new File([blob], file.name.replace(/\.[^.]+$/, '') + '.png', { type: 'image/png' });
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
 export function UploadForm({ vendors }: { vendors: Vendor[] }) {
   const router = useRouter();
   const today = new Date().toISOString().slice(0, 10);
@@ -26,10 +57,11 @@ export function UploadForm({ vendors }: { vendors: Vendor[] }) {
     setBusy(true);
     setError(null);
     try {
+      const resized = await maybeResize(file);
       const fd = new FormData();
       fd.set('vendor_id', vendorId);
       fd.set('effective_date', date);
-      fd.set('file', file);
+      fd.set('file', resized);
       const res = await fetch('/api/uploads', { method: 'POST', body: fd });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`);
