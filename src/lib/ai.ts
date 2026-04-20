@@ -23,11 +23,12 @@ export async function visionExtract<T extends z.ZodTypeAny>(params: {
       },
     ],
   });
-  if (result.output == null) {
-    const err = new Error(
-      `Vision output empty. finishReason=${result.finishReason} usage=${JSON.stringify(result.usage)} textPreview=${(result.text ?? '').slice(0, 500)}`,
+  try {
+    return result.output as z.infer<T>;
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    throw new Error(
+      `Vision failed: ${msg}. finishReason=${result.finishReason} usage=${JSON.stringify(result.usage)} textPreview=${(result.text ?? '').slice(0, 600)}`,
     );
-    throw err;
   }
-  return result.output as z.infer<T>;
 }
