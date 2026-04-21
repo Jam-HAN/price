@@ -207,7 +207,7 @@ export default async function SheetReviewPage({
                 {unmappedModels.length > 0 ? (
                   <>
                     <details className="mt-2 text-xs">
-                      <summary className="cursor-pointer text-amber-700">누락 모델 자세히 ({unmappedModels.length}개)</summary>
+                      <summary className="cursor-pointer text-amber-700">마스터에 없는 모델 ({unmappedModels.length}개) — 이 시트에서는 드롭됨</summary>
                       <ul className="mt-1 list-disc pl-5 text-zinc-600">
                         {unmappedModels.slice(0, 50).map((m) => <li key={m}>{m}</li>)}
                       </ul>
@@ -215,10 +215,10 @@ export default async function SheetReviewPage({
                     <form action={autoRegisterMissingDevices} className="mt-3">
                       <input type="hidden" name="sheet_id" value={sheet.id} />
                       <button className="rounded-lg border border-blue-300 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100">
-                        누락 모델 자동 등록 + alias 연결 ({unmappedModels.length}개)
+                        자동 alias 연결 재시도 ({unmappedModels.length}개)
                       </button>
                       <p className="mt-1 text-[11px] text-zinc-500">
-                        파싱 결과에서 출고가·nickname·series를 추정해 모델 마스터에 추가하고 거래처 코드를 연결합니다.
+                        벤더 raw code → 정규화 → 기존 마스터 매칭. 신규 모델이면 <a href="/devices" className="underline">/devices</a>에서 직접 추가 후 다시 시도.
                       </p>
                     </form>
                   </>

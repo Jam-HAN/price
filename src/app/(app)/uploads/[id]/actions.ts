@@ -18,7 +18,9 @@ export async function deleteSheet(formData: FormData) {
 }
 
 /**
- * 파싱된 모델 중 내부 마스터에 없는 것들을 자동 등록 + 거래처 alias 추가.
+ * 화이트리스트 모드 — 신규 디바이스는 만들지 않음.
+ * 파싱된 벤더 raw code를 정규화하여 기존 마스터에 매칭되면 alias만 자동 추가.
+ * 마스터에 없으면 스킵 (사용자가 /devices에서 수동 추가해야 반영됨).
  */
 export async function autoRegisterMissingDevices(formData: FormData) {
   const sheetId = String(formData.get('sheet_id') ?? '');
@@ -41,114 +43,53 @@ export async function autoRegisterMissingDevices(formData: FormData) {
   const { data: devices } = await sb.from('price_devices').select('id, model_code, nickname');
   const deviceByCode = new Map((devices ?? []).map((d) => [d.model_code, d.id]));
   const deviceByNick = new Map((devices ?? []).map((d) => [d.nickname, d.id]));
-  // 정규화된 code로도 lookup — 거래처마다 다른 code(SM-S948NK512, SM-S948N512G 등)가 들어와도
-  // 이미 등록된 canonical(SM-S948N_512G)을 찾아 alias만 추가하게 함
   const deviceByNormalized = new Map<string, string>();
   for (const d of devices ?? []) {
     const n = normalizeDeviceCode(d.model_code);
     if (!deviceByNormalized.has(n)) deviceByNormalized.set(n, d.id);
   }
 
-  let created = 0;
   let linked = 0;
+  const skipped: string[] = [];
   for (const model of raw.models ?? []) {
-    const normalizedCode = normalizeDeviceCode(model.model_code_raw);
     const candidates = canonicalCandidates(model.model_code_raw);
-    let already: string | undefined =
+    let deviceId: string | undefined =
       aliasMap.get(model.model_code_raw) ?? deviceByCode.get(model.model_code_raw);
-    if (!already) {
+    if (!deviceId) {
       for (const c of candidates) {
         const hit = deviceByNormalized.get(c) ?? deviceByCode.get(c);
-        if (hit) { already = hit; break; }
+        if (hit) { deviceId = hit; break; }
       }
     }
-    if (!already) already = deviceByNick.get(model.nickname);
-    if (already) {
-      // 기존 canonical에 이번 거래처 alias가 아직 없으면 추가
-      if (!aliasMap.has(model.model_code_raw)) {
-        const { error: aliasErr } = await sb
-          .from('price_device_aliases')
-          .insert({
-            device_id: already,
-            vendor_id: sheet.vendor_id,
-            vendor_code: model.model_code_raw,
-          });
-        if (!aliasErr) {
-          linked++;
-          aliasMap.set(model.model_code_raw, already);
-        }
+    if (!deviceId) deviceId = deviceByNick.get(model.nickname);
+    if (!deviceId) {
+      skipped.push(`${model.model_code_raw} · ${model.nickname}`);
+      continue;
+    }
+    if (!aliasMap.has(model.model_code_raw)) {
+      const { error: aliasErr } = await sb
+        .from('price_device_aliases')
+        .insert({
+          device_id: deviceId,
+          vendor_id: sheet.vendor_id,
+          vendor_code: model.model_code_raw,
+        });
+      if (!aliasErr) {
+        linked++;
+        aliasMap.set(model.model_code_raw, deviceId);
       }
-      continue;
     }
-
-    const n = model.nickname.toLowerCase();
-    let category = '5G';
-    if (n.includes('워치') || n.includes('탭')) category = 'S-D';
-    else if (n.includes('lte') || n.includes('스타일폴더')) category = 'LTE';
-
-    const manufacturer =
-      n.includes('아이폰') || n.includes('iphone') ? 'Apple' : n.includes('갤럭시') ? 'Samsung' : null;
-    const seriesHints: Record<string, string> = {
-      's26': 'galaxyS26',
-      's25': 'galaxyS25',
-      '폴드7': 'fold7',
-      '플립7': 'flip7',
-      '아이폰17': 'iphone17',
-      '아이폰16': 'iphone16',
-      '아이폰 에어': 'iphoneAir',
-    };
-    const series = Object.keys(seriesHints).find((k) => model.nickname.includes(k))
-      ? seriesHints[Object.keys(seriesHints).find((k) => model.nickname.includes(k))!]
-      : null;
-
-    // 새 디바이스는 정규화된 코드로 저장 (캐노니컬 폼)
-    // 출고가 미상이면 등록 보류 (Claude 추측 방지)
-    if (model.retail_price_krw == null) {
-      continue;
-    }
-    // 용량 미표기 Samsung → _256G 기본형으로 저장 (사용자 규칙)
-    let modelCode = normalizedCode;
-    if (/^SM-[A-Z]\d{3}N$/.test(modelCode)) modelCode = `${modelCode}_256G`;
-    if (deviceByCode.has(modelCode)) modelCode = `${modelCode}_${Date.now().toString(36)}`;
-
-    // 표준 한글 제품명으로 강제 (매핑 없으면 벤더 nickname 유지)
-    const finalNickname = canonicalNickname(modelCode) ?? model.nickname;
-    const { data: inserted, error: insErr } = await sb
-      .from('price_devices')
-      .insert({
-        model_code: modelCode,
-        nickname: finalNickname,
-        manufacturer,
-        series,
-        storage: model.storage,
-        retail_price_krw: model.retail_price_krw,
-        category,
-        is_new: model.is_new,
-      })
-      .select('id')
-      .single();
-    if (insErr || !inserted) continue;
-    created++;
-    deviceByCode.set(modelCode, inserted.id);
-    deviceByNick.set(model.nickname, inserted.id);
-    deviceByNormalized.set(normalizedCode, inserted.id);
-
-    const { error: aliasErr } = await sb
-      .from('price_device_aliases')
-      .insert({ device_id: inserted.id, vendor_id: sheet.vendor_id, vendor_code: model.model_code_raw });
-    if (!aliasErr) linked++;
-    aliasMap.set(model.model_code_raw, inserted.id);
   }
 
-  // 새로 등록된 모델이 있으면 동기화 재실행
-  if (created > 0) {
+  // alias가 추가됐으면 기존 sync에서 매칭 못 했던 행들이 이번엔 잡힘 → 재동기화
+  if (linked > 0) {
     await syncSheetToNormalized(sheetId);
   }
 
   revalidatePath(`/uploads/${sheetId}`);
   revalidatePath('/devices');
   revalidatePath('/aliases');
-  redirect(`/uploads/${sheetId}?auto_registered=${created}_${linked}`);
+  redirect(`/uploads/${sheetId}?auto_registered=0_${linked}_${skipped.length}`);
 }
 
 export async function updateParsed(formData: FormData) {
