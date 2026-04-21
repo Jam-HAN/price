@@ -1,7 +1,7 @@
 import { generateText, Output } from 'ai';
 import { z } from 'zod';
 
-export const VISION_MODEL = 'anthropic/claude-sonnet-4.6';
+export const VISION_MODEL = 'anthropic/claude-opus-4.7';
 
 export async function visionExtract<T extends z.ZodTypeAny>(params: {
   imageBytes: Uint8Array | Buffer;
