@@ -34,6 +34,81 @@ export function normalizeDeviceCode(raw: string): string {
 }
 
 /**
+ * model_code의 family(예: S942, F766)를 표준 한글 제품명으로 매핑.
+ * 매핑이 없는 family는 null 반환 → 호출자가 기존 nickname 유지.
+ */
+const SAMSUNG_FAMILY_NAMES: Record<string, string> = {
+  // Galaxy S26
+  S942: '갤럭시 S26',
+  S947: '갤럭시 S26+',
+  S948: '갤럭시 S26 울트라',
+  // Galaxy S25
+  S731: '갤럭시 S25 FE',
+  S931: '갤럭시 S25',
+  S936: '갤럭시 S25+',
+  S937: '갤럭시 S25 엣지',
+  S938: '갤럭시 S25 울트라',
+  // Z Fold/Flip 7
+  F766: '갤럭시 Z 플립7',
+  F966: '갤럭시 Z 폴드7',
+  F761: '갤럭시 Z 플립7 FE',
+  F731: '갤럭시 Z 플립7 FE',
+  F961: '갤럭시 Z 폴드7',
+  // Z Fold/Flip 6
+  F741: '갤럭시 Z 플립6',
+  F756: '갤럭시 Z 플립6',
+  F946: '갤럭시 Z 폴드6',
+  F956: '갤럭시 Z 폴드6',
+  // A 시리즈
+  A165: '갤럭시 A16',
+  A166: '갤럭시 A16 LTE',
+  A175: '갤럭시 A17',
+  A366: '갤럭시 A36',
+  A556: '갤럭시 A55',
+  A566: '갤럭시 A56',
+  // M 시리즈
+  M166: '갤럭시 Wide8',
+  M366: '갤럭시 M36',
+  // Tab
+  X216: '갤럭시탭 A9+',
+  X236: '갤럭시탭 A11+',
+  // Watch / Ring
+  L305: '갤럭시 워치8 40mm',
+  L325: '갤럭시 워치 40mm',
+  L335: '갤럭시 링5 라이트',
+  L505: '갤럭시 링5',
+  L705: '갤럭시 워치 울트라',
+  L135: '갤럭시 링4',
+  L315: '갤럭시 링4 UW',
+};
+
+/** model_code에서 용량 부분을 한글 표기로 변환 */
+function storageLabel(storageRaw: string | null | undefined): string {
+  if (!storageRaw) return '';
+  const s = storageRaw.toUpperCase();
+  if (s === '1T' || s === '1TB') return ' 1TB';
+  // 256G → 256G (이미 G 붙어있으면 그대로), 256 → 256G
+  if (/^\d+$/.test(s)) return ` ${s}G`;
+  return ` ${s}`;
+}
+
+/**
+ * model_code에서 표준 한글 제품명을 생성.
+ * 매핑 없으면 null (호출자가 기존 nickname 유지).
+ * 예: SM-S942N_256G → "갤럭시 S26 256G"
+ *     SM-S948N_1T   → "갤럭시 S26 울트라 1TB"
+ */
+export function canonicalNickname(modelCode: string): string | null {
+  const m = modelCode.match(/^SM-([A-Z])(\d{3})N?(?:_(.+))?$/);
+  if (!m) return null;
+  const [, letter, num, storage] = m;
+  const key = `${letter}${num}`;
+  const base = SAMSUNG_FAMILY_NAMES[key];
+  if (!base) return null;
+  return base + storageLabel(storage);
+}
+
+/**
  * 매칭용 candidate 목록 생성 — 용량 미표기는 256G 기본으로 간주.
  * 예: normalizeDeviceCode('SM-S948N') = 'SM-S948N'
  *     canonicalCandidates → ['SM-S948N', 'SM-S948N_256G']

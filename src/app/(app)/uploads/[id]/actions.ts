@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import type { SheetExtraction } from '@/lib/vision-schema';
 import { syncSheetToNormalized } from '@/lib/sync-sheet';
-import { normalizeDeviceCode, canonicalCandidates } from '@/lib/device-normalize';
+import { normalizeDeviceCode, canonicalCandidates, canonicalNickname } from '@/lib/device-normalize';
 
 export async function deleteSheet(formData: FormData) {
   const sheetId = String(formData.get('sheet_id') ?? '');
@@ -111,11 +111,13 @@ export async function autoRegisterMissingDevices(formData: FormData) {
     if (/^SM-[A-Z]\d{3}N$/.test(modelCode)) modelCode = `${modelCode}_256G`;
     if (deviceByCode.has(modelCode)) modelCode = `${modelCode}_${Date.now().toString(36)}`;
 
+    // 표준 한글 제품명으로 강제 (매핑 없으면 벤더 nickname 유지)
+    const finalNickname = canonicalNickname(modelCode) ?? model.nickname;
     const { data: inserted, error: insErr } = await sb
       .from('price_devices')
       .insert({
         model_code: modelCode,
-        nickname: model.nickname,
+        nickname: finalNickname,
         manufacturer,
         series,
         storage: model.storage,
