@@ -74,7 +74,7 @@ export default async function MatrixPage({ searchParams }: { searchParams: Searc
     map.get(r.device_id)!.byVendor[r.vendor_id] = {
       vendor: r.vendor_price,
       net: r.net_price,
-      subsidy: r.subsidy_krw,
+      subsidy: r.subsidy_krw ?? null,
     };
   }
   const devices = Array.from(map.values()).sort((a, b) => {
@@ -110,25 +110,33 @@ export default async function MatrixPage({ searchParams }: { searchParams: Searc
           <table className="w-full text-sm">
             <thead className="bg-zinc-50 text-xs text-zinc-500">
               <tr>
-                <th className="sticky left-0 bg-zinc-50 px-3 py-2 text-left">모델</th>
-                <th className="px-3 py-2 text-right">출고가</th>
+                <th rowSpan={2} className="sticky left-0 bg-zinc-50 px-3 py-2 text-left align-middle">모델</th>
+                <th rowSpan={2} className="px-3 py-2 text-right align-middle">출고가</th>
                 {(vendors ?? []).map((v) => (
-                  <th key={v.id} className="border-l border-zinc-200 px-3 py-2 text-right">
-                    {v.name} 단가
+                  <th key={v.id} colSpan={3} className="border-l border-zinc-200 px-3 py-2 text-center font-semibold text-zinc-700">
+                    {v.name}
                   </th>
                 ))}
-                {(vendors ?? []).map((v) => (
-                  <th key={`n-${v.id}`} className="border-l border-zinc-200 bg-emerald-50 px-3 py-2 text-right text-emerald-800">
-                    {v.name} Net
-                  </th>
-                ))}
-                <th className="border-l border-zinc-200 px-3 py-2 text-right">Δ</th>
+                <th rowSpan={2} className="border-l border-zinc-200 px-3 py-2 text-right align-middle">Δ Net</th>
+              </tr>
+              <tr>
+                {(vendors ?? []).flatMap((v) => [
+                  <th key={`s-${v.id}`} className="border-l border-zinc-200 px-2 py-1 text-right text-[11px] font-normal">
+                    공시
+                  </th>,
+                  <th key={`p-${v.id}`} className="px-2 py-1 text-right text-[11px] font-normal">
+                    단가
+                  </th>,
+                  <th key={`n-${v.id}`} className="bg-emerald-50 px-2 py-1 text-right text-[11px] font-semibold text-emerald-800">
+                    Net
+                  </th>,
+                ])}
               </tr>
             </thead>
             <tbody>
               {devices.length === 0 ? (
                 <tr>
-                  <td colSpan={2 + (vendors?.length ?? 0) * 2 + 1} className="px-4 py-8 text-center text-zinc-400">
+                  <td colSpan={2 + (vendors?.length ?? 0) * 3 + 1} className="px-4 py-8 text-center text-zinc-400">
                     데이터 없음 — 단가표를 업로드하고 확정하세요.
                   </td>
                 </tr>
@@ -146,21 +154,25 @@ export default async function MatrixPage({ searchParams }: { searchParams: Searc
                       <div className="font-mono text-[10px] text-zinc-400">{d.device_code}</div>
                     </td>
                     <td className="px-3 py-1.5 text-right font-mono text-xs text-zinc-500">{formatKrw(d.retail_price_krw)}</td>
-                    {cells.map((c, i) => (
-                      <td key={`v-${i}`} className="border-l border-zinc-100 px-3 py-1.5 text-right font-mono text-xs">
+                    {cells.flatMap((c, i) => [
+                      <td
+                        key={`s-${i}`}
+                        className="border-l border-zinc-100 px-2 py-1.5 text-right font-mono text-xs text-zinc-500"
+                      >
+                        {c && c.subsidy != null ? formatKrw(c.subsidy) : <span className="text-zinc-300">—</span>}
+                      </td>,
+                      <td key={`p-${i}`} className="px-2 py-1.5 text-right font-mono text-xs">
                         {c ? formatKrw(c.vendor) : <span className="text-zinc-300">—</span>}
-                      </td>
-                    ))}
-                    {cells.map((c, i) => (
+                      </td>,
                       <td
                         key={`n-${i}`}
-                        className={`border-l border-zinc-100 px-3 py-1.5 text-right font-mono font-semibold ${
-                          c && c.net === minNet ? 'bg-emerald-50 text-emerald-700' : ''
+                        className={`px-2 py-1.5 text-right font-mono font-semibold ${
+                          c && c.net === minNet ? 'bg-emerald-50 text-emerald-700' : 'bg-emerald-50/40'
                         }`}
                       >
                         {c ? formatKrw(c.net) : <span className="text-zinc-300">—</span>}
-                      </td>
-                    ))}
+                      </td>,
+                    ])}
                     <td className="border-l border-zinc-100 px-3 py-1.5 text-right font-mono text-xs">
                       {delta != null ? (delta === 0 ? '0' : formatKrw(delta)) : '—'}
                     </td>
