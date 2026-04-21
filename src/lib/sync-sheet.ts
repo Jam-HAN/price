@@ -81,16 +81,28 @@ export async function syncSheetToNormalized(sheetId: string) {
     }
   }
 
+  // unique 키 기준 중복 제거 (Claude가 같은 모델을 여러 행으로 반환하는 경우 대응, 마지막 값 우선)
+  const quoteMap = new Map<string, typeof quotes[number]>();
+  for (const q of quotes) {
+    quoteMap.set(`${q.device_id}|${q.plan_tier_id}|${q.contract_type}|${q.activation_type}`, q);
+  }
+  const subsidyMap = new Map<string, typeof subsidies[number]>();
+  for (const s of subsidies) {
+    subsidyMap.set(`${s.device_id}|${s.plan_tier_id}`, s);
+  }
+  const dedupedQuotes = Array.from(quoteMap.values());
+  const dedupedSubsidies = Array.from(subsidyMap.values());
+
   await sb.from('price_vendor_quotes').delete().eq('sheet_id', sheetId);
   await sb.from('price_vendor_subsidies').delete().eq('sheet_id', sheetId);
   await sb.from('price_vendor_policies').delete().eq('sheet_id', sheetId);
 
-  if (quotes.length) {
-    const { error } = await sb.from('price_vendor_quotes').insert(quotes);
+  if (dedupedQuotes.length) {
+    const { error } = await sb.from('price_vendor_quotes').insert(dedupedQuotes);
     if (error) throw new Error(`quotes insert: ${error.message}`);
   }
-  if (subsidies.length) {
-    const { error } = await sb.from('price_vendor_subsidies').insert(subsidies);
+  if (dedupedSubsidies.length) {
+    const { error } = await sb.from('price_vendor_subsidies').insert(dedupedSubsidies);
     if (error) throw new Error(`subsidies insert: ${error.message}`);
   }
   if (raw.policies?.length) {
@@ -115,5 +127,5 @@ export async function syncSheetToNormalized(sheetId: string) {
     .update({ parse_status: 'confirmed', confirmed_at: new Date().toISOString() })
     .eq('id', sheetId);
 
-  return { quotes: quotes.length, subsidies: subsidies.length, policies: raw.policies?.length ?? 0, unmapped };
+  return { quotes: dedupedQuotes.length, subsidies: dedupedSubsidies.length, policies: raw.policies?.length ?? 0, unmapped };
 }
