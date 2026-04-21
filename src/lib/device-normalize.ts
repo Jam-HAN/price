@@ -33,6 +33,22 @@ export function normalizeDeviceCode(raw: string): string {
   return storage ? `SM-${family}N_${storage}` : `SM-${family}N`;
 }
 
+/**
+ * 매칭용 candidate 목록 생성 — 용량 미표기는 256G 기본으로 간주.
+ * 예: normalizeDeviceCode('SM-S948N') = 'SM-S948N'
+ *     canonicalCandidates → ['SM-S948N', 'SM-S948N_256G']
+ * sync/autoRegister 단계에서 이 후보를 전부 lookup해 기존 디바이스를 찾음.
+ */
+export function canonicalCandidates(raw: string): string[] {
+  const norm = normalizeDeviceCode(raw);
+  const out = [norm];
+  // Samsung 패턴 · 용량 미표기(SM-XXXN)는 SM-XXXN_256G와 동일 취급
+  if (/^SM-[A-Z]\d{3}N$/.test(norm)) {
+    out.push(`${norm}_256G`);
+  }
+  return out;
+}
+
 /** 디바이스 2건이 동일 물리 모델인지 판단 (code + nickname + retail 10%내) */
 export function areSameDevice(
   a: { model_code: string; nickname: string; retail_price_krw: number },

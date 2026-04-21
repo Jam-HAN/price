@@ -1,6 +1,6 @@
 import type { SheetExtraction } from './vision-schema';
 import { getSupabaseAdmin } from './supabase';
-import { normalizeDeviceCode } from './device-normalize';
+import { normalizeDeviceCode, canonicalCandidates } from './device-normalize';
 
 /**
  * raw_ocr_json을 price_vendor_quotes / subsidies / policies로 동기화.
@@ -55,12 +55,16 @@ export async function syncSheetToNormalized(sheetId: string) {
   let unmapped = 0;
 
   for (const model of raw.models ?? []) {
-    const normalized = normalizeDeviceCode(model.model_code_raw);
-    const deviceId =
-      aliasMap.get(model.model_code_raw) ??
-      deviceByCode.get(model.model_code_raw) ??
-      deviceByNormalized.get(normalized) ??
-      deviceByNick.get(model.nickname);
+    const candidates = canonicalCandidates(model.model_code_raw);
+    let deviceId: string | undefined =
+      aliasMap.get(model.model_code_raw) ?? deviceByCode.get(model.model_code_raw);
+    if (!deviceId) {
+      for (const c of candidates) {
+        const hit = deviceByNormalized.get(c) ?? deviceByCode.get(c);
+        if (hit) { deviceId = hit; break; }
+      }
+    }
+    if (!deviceId) deviceId = deviceByNick.get(model.nickname);
     if (!deviceId) {
       unmapped++;
       continue;

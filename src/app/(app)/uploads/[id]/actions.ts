@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import type { SheetExtraction } from '@/lib/vision-schema';
 import { syncSheetToNormalized } from '@/lib/sync-sheet';
-import { normalizeDeviceCode } from '@/lib/device-normalize';
+import { normalizeDeviceCode, canonicalCandidates } from '@/lib/device-normalize';
 
 export async function deleteSheet(formData: FormData) {
   const sheetId = String(formData.get('sheet_id') ?? '');
@@ -53,11 +53,16 @@ export async function autoRegisterMissingDevices(formData: FormData) {
   let linked = 0;
   for (const model of raw.models ?? []) {
     const normalizedCode = normalizeDeviceCode(model.model_code_raw);
-    const already =
-      aliasMap.get(model.model_code_raw) ??
-      deviceByCode.get(model.model_code_raw) ??
-      deviceByNormalized.get(normalizedCode) ??
-      deviceByNick.get(model.nickname);
+    const candidates = canonicalCandidates(model.model_code_raw);
+    let already: string | undefined =
+      aliasMap.get(model.model_code_raw) ?? deviceByCode.get(model.model_code_raw);
+    if (!already) {
+      for (const c of candidates) {
+        const hit = deviceByNormalized.get(c) ?? deviceByCode.get(c);
+        if (hit) { already = hit; break; }
+      }
+    }
+    if (!already) already = deviceByNick.get(model.nickname);
     if (already) {
       // 기존 canonical에 이번 거래처 alias가 아직 없으면 추가
       if (!aliasMap.has(model.model_code_raw)) {
@@ -101,7 +106,9 @@ export async function autoRegisterMissingDevices(formData: FormData) {
     if (model.retail_price_krw == null) {
       continue;
     }
+    // 용량 미표기 Samsung → _256G 기본형으로 저장 (사용자 규칙)
     let modelCode = normalizedCode;
+    if (/^SM-[A-Z]\d{3}N$/.test(modelCode)) modelCode = `${modelCode}_256G`;
     if (deviceByCode.has(modelCode)) modelCode = `${modelCode}_${Date.now().toString(36)}`;
 
     const { data: inserted, error: insErr } = await sb
