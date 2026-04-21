@@ -5,9 +5,9 @@ import { signedUrl } from '@/lib/storage';
 import type { SheetExtraction } from '@/lib/vision-schema';
 import { formatKrw } from '@/lib/fmt';
 import { confirmSheet, deleteSheet, updateParsed, autoRegisterMissingDevices } from './actions';
-import { detectSuspiciousModels } from '@/lib/quality';
-import { ReparseButton } from './ReparseButton';
+import { runAllChecks, dedupeFlagsByCell, flagKey } from '@/lib/consistency';
 import { FullReparseButton } from './FullReparseButton';
+import { EditableModelsTable } from './EditableModelsTable';
 
 export const dynamic = 'force-dynamic';
 
@@ -57,6 +57,46 @@ export default async function SheetReviewPage({
       if (!tierCodes.has(t.plan_tier_code)) unmappedTiers.push(`${t.plan_tier_code} (${m.nickname})`);
     }
   }
+
+  // Consistency check용 데이터 로드: 같은 통신사 짝거래처의 같은 일자 + 같은 거래처의 전일 시트
+  const carrier = (vendor?.carrier ?? 'SKT') as 'SKT' | 'KT' | 'LGU+';
+  const { data: pairVendors } = await sb
+    .from('price_vendors')
+    .select('id,name')
+    .eq('carrier', carrier)
+    .neq('id', sheet.vendor_id);
+  const pairVendorIds = (pairVendors ?? []).map((v) => v.id);
+
+  const [{ data: pairSheets }, { data: prevSheets }] = await Promise.all([
+    pairVendorIds.length
+      ? sb
+          .from('price_vendor_quote_sheets')
+          .select('id, vendor_id, effective_date, raw_ocr_json')
+          .in('vendor_id', pairVendorIds)
+          .eq('effective_date', sheet.effective_date)
+          .order('uploaded_at', { ascending: false })
+          .limit(1)
+      : Promise.resolve({ data: [] as { raw_ocr_json: SheetExtraction | null }[] }),
+    sb
+      .from('price_vendor_quote_sheets')
+      .select('raw_ocr_json, effective_date')
+      .eq('vendor_id', sheet.vendor_id)
+      .lt('effective_date', sheet.effective_date)
+      .order('effective_date', { ascending: false })
+      .limit(1),
+  ]);
+
+  const pairSheet = (pairSheets?.[0]?.raw_ocr_json as SheetExtraction | null) ?? null;
+  const prevSheet = (prevSheets?.[0]?.raw_ocr_json as SheetExtraction | null) ?? null;
+
+  const allFlags = raw
+    ? runAllChecks({ sheet: raw, pair: pairSheet, previous: prevSheet, carrier })
+    : [];
+  const flagMap = dedupeFlagsByCell(allFlags);
+  const redCount = Array.from(flagMap.values()).filter((f) => f.severity === 'red').length;
+  const yellowCount = Array.from(flagMap.values()).filter((f) => f.severity === 'yellow').length;
+  const flagMapObj: Record<string, (typeof allFlags)[number]> = {};
+  for (const [k, v] of flagMap.entries()) flagMapObj[k] = v;
 
   return (
     <div className="space-y-6">
@@ -123,37 +163,34 @@ export default async function SheetReviewPage({
         <section className="space-y-4">
           {raw ? (
             <>
-              {(() => {
-                const suspicious = detectSuspiciousModels(raw);
-                if (suspicious.length === 0) return null;
-                return (
-                  <div className="rounded-xl border border-amber-300 bg-amber-50 p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <h2 className="text-sm font-bold text-amber-900">⚠ 파싱 품질 경고 · {suspicious.length}개 모델 의심</h2>
-                        <p className="mt-1 text-xs text-amber-800">
-                          같은 값이 여러 구간에 연속 반복되거나 전체 null 같은 패턴 발견. Claude Opus로 타겟 재파싱을 권장합니다.
-                        </p>
-                      </div>
-                      <ReparseButton
-                        sheetId={sheet.id}
-                        modelCodes={suspicious.map((s) => s.model_code)}
-                        label={`의심 모델 ${Math.min(suspicious.length, 15)}개 재파싱 (Opus)`}
-                      />
-                    </div>
-                    <details className="mt-2 text-xs text-amber-900">
-                      <summary className="cursor-pointer">상세 보기 ({suspicious.length}개)</summary>
-                      <ul className="mt-1 space-y-0.5">
-                        {suspicious.slice(0, 30).map((s) => (
-                          <li key={s.model_code} className="font-mono">
-                            <span className="inline-block w-24 text-[10px]">[{s.issue}]</span> {s.model_code} · {s.nickname} — {s.detail}
-                          </li>
-                        ))}
-                      </ul>
-                    </details>
-                  </div>
-                );
-              })()}
+              {(redCount > 0 || yellowCount > 0) && (
+                <div className={`rounded-xl border p-4 ${redCount > 0 ? 'border-red-300 bg-red-50' : 'border-amber-300 bg-amber-50'}`}>
+                  <h2 className={`text-sm font-bold ${redCount > 0 ? 'text-red-900' : 'text-amber-900'}`}>
+                    {redCount > 0 ? '⚠ 즉시 수정 필요' : '⚠ 검토 권장'}
+                    <span className="ml-2 text-xs font-normal">
+                      빨강 {redCount}개 · 노랑 {yellowCount}개
+                    </span>
+                  </h2>
+                  <p className="mt-1 text-xs text-zinc-700">
+                    페어 거래처·전일 데이터·범위·단조성으로 자동 비교. 빨간 셀은 확정 전 수정 필요.
+                  </p>
+                  <details className="mt-2 text-xs">
+                    <summary className="cursor-pointer text-zinc-700">플래그 상세 (최대 30개 표시)</summary>
+                    <ul className="mt-1 space-y-0.5 text-zinc-800">
+                      {Array.from(flagMap.values()).slice(0, 30).map((f) => (
+                        <li key={flagKey(f)} className="font-mono text-[11px]">
+                          <span className={`inline-block w-12 ${f.severity === 'red' ? 'text-red-600' : 'text-amber-600'}`}>
+                            [{f.severity}]
+                          </span>
+                          <span className="inline-block w-20">{f.reason}</span>{' '}
+                          {f.model_code_raw}
+                          {f.plan_tier_code ? ` · ${f.plan_tier_code}` : ''} · {f.field} — {f.detail}
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                </div>
+              )}
               <div className="rounded-xl border border-zinc-200 bg-white p-4">
                 <h2 className="mb-2 text-sm font-semibold">파싱 요약</h2>
                 <ul className="text-sm text-zinc-700">
@@ -183,7 +220,7 @@ export default async function SheetReviewPage({
                 ) : null}
               </div>
 
-              <ModelsTable raw={raw} />
+              <EditableModelsTable sheetId={sheet.id} raw={raw} flagMap={flagMapObj} />
 
               <PoliciesList policies={raw.policies ?? []} />
 
@@ -199,9 +236,16 @@ export default async function SheetReviewPage({
             <form action={confirmSheet} className="flex items-center gap-3 rounded-xl border border-zinc-200 bg-white p-4">
               <input type="hidden" name="sheet_id" value={sheet.id} />
               <div className="text-sm text-zinc-600">
-                검수 끝났으면 확정. 매핑 누락 행은 스킵됩니다.
+                {redCount > 0 ? (
+                  <span className="font-semibold text-red-700">빨강 {redCount}개 수정 후 확정 가능</span>
+                ) : (
+                  <>검수 끝났으면 확정. 매핑 누락 행은 스킵됩니다.</>
+                )}
               </div>
-              <button className="ml-auto rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">
+              <button
+                disabled={redCount > 0}
+                className="ml-auto rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-zinc-300"
+              >
                 확정
               </button>
             </form>
@@ -226,90 +270,6 @@ const STATUS_LABEL: Record<string, string> = {
   confirmed: '확정',
   error: '오류',
 };
-
-function ModelsTable({ raw }: { raw: SheetExtraction }) {
-  const tierCodes = Array.from(
-    new Set((raw.models ?? []).flatMap((m) => (m.tiers ?? []).map((t) => t.plan_tier_code))),
-  );
-  return (
-    <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white">
-      <div className="flex items-center justify-between border-b border-zinc-100 bg-zinc-50 px-4 py-2">
-        <h2 className="text-sm font-semibold">파싱된 모델 × 구간</h2>
-        <span className="text-xs text-zinc-500">단가(공통/선약 × 010/MNP/기변)</span>
-      </div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-xs">
-          <thead className="bg-zinc-50 text-zinc-500">
-            <tr>
-              <th className="sticky left-0 bg-zinc-50 px-2 py-2 text-left">모델</th>
-              <th className="px-2 py-2 text-right">출고가</th>
-              {tierCodes.map((code) => (
-                <th key={code} colSpan={6} className="border-l border-zinc-200 px-2 py-2 text-center">
-                  {code}
-                </th>
-              ))}
-            </tr>
-            <tr>
-              <th className="sticky left-0 bg-zinc-50 px-2 py-1" />
-              <th className="px-2 py-1" />
-              {tierCodes.map((code) => (
-                <ThTypeHeader key={code} />
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {(raw.models ?? []).map((m, i) => (
-              <tr key={i} className="border-t border-zinc-100">
-                <td className="sticky left-0 bg-white px-2 py-1.5 font-medium">
-                  <div>{m.nickname}</div>
-                  <div className="font-mono text-[10px] text-zinc-400">{m.model_code_raw}</div>
-                </td>
-                <td className="px-2 py-1.5 text-right font-mono">{formatKrw(m.retail_price_krw)}</td>
-                {tierCodes.map((code) => {
-                  const tier = m.tiers?.find((t) => t.plan_tier_code === code);
-                  if (!tier) return <td key={code} colSpan={6} className="border-l border-zinc-100 px-2 py-1 text-center text-zinc-300">—</td>;
-                  return (
-                    <>
-                      <PriceCell key={`${code}-c-new`} v={tier.common?.new010} />
-                      <PriceCell key={`${code}-c-mnp`} v={tier.common?.mnp} />
-                      <PriceCell key={`${code}-c-ch`} v={tier.common?.change} />
-                      <PriceCell key={`${code}-s-new`} v={tier.select?.new010} dim />
-                      <PriceCell key={`${code}-s-mnp`} v={tier.select?.mnp} dim />
-                      <PriceCell key={`${code}-s-ch`} v={tier.select?.change} dim />
-                    </>
-                  );
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
-function ThTypeHeader() {
-  return (
-    <>
-      <th className="border-l border-zinc-200 px-1 py-1 text-[10px] font-normal">공·010</th>
-      <th className="px-1 py-1 text-[10px] font-normal">공·MNP</th>
-      <th className="px-1 py-1 text-[10px] font-normal">공·기변</th>
-      <th className="px-1 py-1 text-[10px] font-normal text-zinc-400">선·010</th>
-      <th className="px-1 py-1 text-[10px] font-normal text-zinc-400">선·MNP</th>
-      <th className="px-1 py-1 text-[10px] font-normal text-zinc-400">선·기변</th>
-    </>
-  );
-}
-
-function PriceCell({ v, dim }: { v?: number | null; dim?: boolean }) {
-  if (v == null) return <td className={`px-1 py-1 text-center text-zinc-300 ${dim ? '' : ''}`}>—</td>;
-  const neg = v < 0;
-  return (
-    <td className={`px-1 py-1 text-right font-mono ${neg ? 'text-red-600' : ''} ${dim ? 'text-zinc-500' : ''}`}>
-      {(v / 10000).toFixed(v % 10000 === 0 ? 0 : 1)}
-    </td>
-  );
-}
 
 function PoliciesList({ policies }: { policies: SheetExtraction['policies'] }) {
   if (!policies?.length) return null;

@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import type { SheetExtraction } from '@/lib/vision-schema';
+import { runAllChecks, dedupeFlagsByCell } from '@/lib/consistency';
 
 /**
  * 파싱 결과를 검수 후 확정: raw_ocr_json의 models/policies를
@@ -27,6 +28,42 @@ export async function confirmSheet(formData: FormData) {
 
   const raw = sheet.raw_ocr_json as SheetExtraction | null;
   if (!raw) throw new Error('파싱 결과(raw_ocr_json) 없음');
+
+  // Red flag 있으면 확정 차단 (서버측 이중 방어)
+  const [{ data: pairVendorIds }, { data: prevSheets }] = await Promise.all([
+    sb.from('price_vendors').select('id').eq('carrier', carrier).neq('id', sheet.vendor_id),
+    sb
+      .from('price_vendor_quote_sheets')
+      .select('raw_ocr_json')
+      .eq('vendor_id', sheet.vendor_id)
+      .lt('effective_date', (await sb.from('price_vendor_quote_sheets').select('effective_date').eq('id', sheetId).single()).data?.effective_date ?? '1970-01-01')
+      .order('effective_date', { ascending: false })
+      .limit(1),
+  ]);
+  const pairIds = (pairVendorIds ?? []).map((v) => v.id);
+  let pairSheet: SheetExtraction | null = null;
+  if (pairIds.length) {
+    const { data: pairRow } = await sb
+      .from('price_vendor_quote_sheets')
+      .select('raw_ocr_json, effective_date')
+      .in('vendor_id', pairIds)
+      .order('effective_date', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    pairSheet = (pairRow?.raw_ocr_json as SheetExtraction | null) ?? null;
+  }
+  const prevSheet = (prevSheets?.[0]?.raw_ocr_json as SheetExtraction | null) ?? null;
+  const flags = runAllChecks({
+    sheet: raw,
+    pair: pairSheet,
+    previous: prevSheet,
+    carrier: carrier as 'SKT' | 'KT' | 'LGU+',
+  });
+  const deduped = Array.from(dedupeFlagsByCell(flags).values());
+  const redFlags = deduped.filter((f) => f.severity === 'red');
+  if (redFlags.length > 0) {
+    throw new Error(`빨간 셀 ${redFlags.length}개 남아있음. 수정 후 확정 가능`);
+  }
 
   // 디바이스 alias 로드 (거래처별) + 전체 모델 매핑 참고용
   const [{ data: aliases }, { data: devices }, { data: tiers }] = await Promise.all([
@@ -253,4 +290,83 @@ export async function updateParsed(formData: FormData) {
     .eq('id', sheetId);
   if (error) throw new Error(error.message);
   revalidatePath(`/uploads/${sheetId}`);
+}
+
+/**
+ * 단일 셀 값 수정. raw_ocr_json 경로를 타고 들어가 값을 갱신하고
+ * price_cell_corrections에 before/after 기록 (파인튜닝 데이터셋용).
+ */
+export async function updateCell(input: {
+  sheet_id: string;
+  model_code_raw: string;
+  plan_tier_code: string | null;
+  field:
+    | 'retail_price_krw'
+    | 'subsidy_krw'
+    | 'common.new010' | 'common.mnp' | 'common.change'
+    | 'select.new010' | 'select.mnp' | 'select.change';
+  after_value: number | null;
+  flag_reason?: string | null;
+}) {
+  const sb = getSupabaseAdmin();
+  const { data: sheet, error } = await sb
+    .from('price_vendor_quote_sheets')
+    .select('raw_ocr_json')
+    .eq('id', input.sheet_id)
+    .single();
+  if (error || !sheet) throw new Error('sheet 조회 실패');
+
+  const raw = sheet.raw_ocr_json as SheetExtraction | null;
+  if (!raw) throw new Error('파싱 결과 없음');
+
+  const modelIdx = (raw.models ?? []).findIndex((m) => m.model_code_raw === input.model_code_raw);
+  if (modelIdx < 0) throw new Error(`모델 ${input.model_code_raw} 없음`);
+  const model = raw.models[modelIdx];
+
+  let before: number | null = null;
+
+  if (input.field === 'retail_price_krw') {
+    before = model.retail_price_krw ?? null;
+    model.retail_price_krw = input.after_value ?? 0;
+  } else {
+    if (!input.plan_tier_code) throw new Error('plan_tier_code 필요');
+    const tierIdx = (model.tiers ?? []).findIndex((t) => t.plan_tier_code === input.plan_tier_code);
+    if (tierIdx < 0) throw new Error(`tier ${input.plan_tier_code} 없음`);
+    const tier = model.tiers[tierIdx];
+
+    if (input.field === 'subsidy_krw') {
+      before = tier.subsidy_krw ?? null;
+      tier.subsidy_krw = input.after_value;
+    } else {
+      const [blockKey, actKey] = input.field.split('.') as [
+        'common' | 'select',
+        'new010' | 'mnp' | 'change',
+      ];
+      if (!tier[blockKey]) {
+        tier[blockKey] = { new010: null, mnp: null, change: null };
+      }
+      const block = tier[blockKey]!;
+      before = block[actKey] ?? null;
+      block[actKey] = input.after_value;
+    }
+  }
+
+  const { error: updateErr } = await sb
+    .from('price_vendor_quote_sheets')
+    .update({ raw_ocr_json: raw })
+    .eq('id', input.sheet_id);
+  if (updateErr) throw new Error(updateErr.message);
+
+  await sb.from('price_cell_corrections').insert({
+    sheet_id: input.sheet_id,
+    model_code_raw: input.model_code_raw,
+    plan_tier_code: input.plan_tier_code,
+    field: input.field,
+    before_value: before,
+    after_value: input.after_value,
+    flag_reason: input.flag_reason ?? 'manual',
+  });
+
+  revalidatePath(`/uploads/${input.sheet_id}`);
+  return { before, after: input.after_value };
 }
