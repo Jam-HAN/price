@@ -1,26 +1,84 @@
 @import "tailwindcss";
 
-/* 라이트 모드 고정 — 내부 운영 도구라 다크 대응은 불필요 */
+/* ─── 토큰 ─────────────────────────────────────────── */
 :root {
   color-scheme: light;
+  --bg: #fafafa;            /* page bg */
+  --surface: #ffffff;       /* card bg */
+  --border: #e4e4e7;        /* zinc-200 */
+  --border-strong: #d4d4d8; /* zinc-300 */
+  --muted: #71717a;         /* zinc-500 */
+  --fg: #18181b;            /* zinc-900 */
+  --primary: #18181b;
+  --primary-fg: #ffffff;
+  --ring: #a1a1aa;          /* zinc-400 */
+  --radius: 12px;
 }
 
-html,
-body {
-  background: #fafafa; /* zinc-50 */
-  color: #18181b;      /* zinc-900 */
+html, body {
+  background: var(--bg);
+  color: var(--fg);
   font-family: "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  font-feature-settings: "ss01", "ss02", "tnum";
 }
 
-/* 폼 요소 기본 색 — 다크 테마 브라우저에서도 읽을 수 있게 */
-input,
-select,
-textarea,
-button {
+/* 폼 요소 기본 색 */
+input, select, textarea, button {
   color: inherit;
   background-color: #ffffff;
 }
 
 input[type="checkbox"] {
-  accent-color: #18181b;
+  accent-color: var(--primary);
+}
+
+/* ─── 재사용 유틸 ────────────────────────────────── */
+@layer components {
+  /* 카드 */
+  .card {
+    @apply rounded-xl border border-zinc-200 bg-white;
+  }
+
+  /* 페이지 타이틀 */
+  .page-title {
+    @apply text-2xl font-bold tracking-tight;
+  }
+
+  /* 섹션 헤더 (카드 상단 etc) */
+  .section-header {
+    @apply border-b border-zinc-100 bg-zinc-50 px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-zinc-500;
+  }
+
+  /* 버튼 */
+  .btn-primary {
+    @apply rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-secondary {
+    @apply rounded-lg border border-zinc-200 bg-white px-4 py-2 text-sm text-zinc-700 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-ghost {
+    @apply rounded-lg px-3 py-1.5 text-sm text-zinc-600 transition hover:bg-zinc-100;
+  }
+  .btn-danger {
+    @apply rounded-lg bg-red-50 px-3 py-1.5 text-sm font-medium text-red-600 transition hover:bg-red-100;
+  }
+
+  /* pill 탭 컨테이너 */
+  .pill-tabs {
+    @apply flex items-center gap-0.5 rounded-full border border-zinc-200 bg-white p-1 text-xs;
+  }
+  .pill-tab {
+    @apply rounded-full px-4 py-1 transition;
+  }
+  .pill-tab-active {
+    @apply bg-zinc-900 text-white;
+  }
+  .pill-tab-idle {
+    @apply text-zinc-500 hover:bg-zinc-50;
+  }
+
+  /* 입력 */
+  .input {
+    @apply rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-zinc-500;
+  }
 }
