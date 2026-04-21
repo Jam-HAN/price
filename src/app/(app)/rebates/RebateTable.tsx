@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import { formatMan } from '@/lib/fmt';
 import { updateRebate } from './actions';
 
 type Vendor = { id: string; name: string };
@@ -195,7 +196,7 @@ function EditCell({
       {editing && sheetId ? (
         <input
           autoFocus
-          defaultValue={local == null ? '' : (local / 10000).toString()}
+          defaultValue={local == null ? '' : formatMan(local)}
           disabled={pending}
           onBlur={(e) => commit(e.currentTarget.value)}
           onKeyDown={(e) => {
@@ -211,7 +212,7 @@ function EditCell({
           disabled={!sheetId}
           className={`w-full rounded px-0.5 ${sheetId ? 'cursor-pointer hover:bg-zinc-100' : 'cursor-not-allowed'} ${local == null ? 'text-zinc-300' : ''} ${local != null && local < 0 ? 'text-red-600' : ''}`}
         >
-          {local == null ? '—' : (local / 10000).toFixed((local / 10000) % 1 === 0 ? 0 : 1)}
+          {formatMan(local)}
         </button>
       )}
       {err ? <div className="text-[9px] text-red-600">{err}</div> : null}

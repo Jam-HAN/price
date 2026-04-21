@@ -1,5 +1,5 @@
 import { getSupabaseAdmin } from '@/lib/supabase';
-import type { Carrier } from '@/lib/fmt';
+import { type Carrier, formatMan, compareDevicesForList } from '@/lib/fmt';
 import { PublishControls } from './PublishControls';
 
 export const dynamic = 'force-dynamic';
@@ -86,7 +86,8 @@ export default async function PublishPage({ searchParams }: { searchParams: Sear
     ...s,
     rows: devices
       .filter((d) => s.series.includes(d.series ?? 'misc'))
-      .sort((a, b) => a.retail - b.retail),
+      .map((d) => ({ ...d, nickname: d.name, retail_price_krw: d.retail }))
+      .sort(compareDevicesForList),
   })).filter((s) => s.rows.length > 0);
 
   const tierLabel = (carrier: Carrier, code: string) => (byCarrier.get(carrier) ?? []).find((t) => t.code === code);
@@ -119,9 +120,9 @@ export default async function PublishPage({ searchParams }: { searchParams: Sear
         </div>
 
         <div className="border-b border-zinc-200 bg-zinc-50 px-6 py-3 text-[13px] text-zinc-700">
-          <p>· 시세 금액은 <b>Net가(원)</b> — 출고가 − 공시지원금 − 단가(마진 0). 실제 구매가는 지원금·약정 정책에 따라 조정.</p>
-          <p>· 요금제 사용 기간: 공시 6개월(185일) / 선택 4개월(130일)</p>
-          <p>· 시세표 금액은 공시 지원금 기준이며, 선택약정 희망 시 별도 문의.</p>
+          <p>· 시세 금액은 <b>고객가</b> — 출고가 − 공통지원금 − 리베이트 + 마진 (만원 단위, ##.# 형식).</p>
+          <p>· 요금제 사용 기간: 공통 6개월(185일) / 선택 4개월(130일)</p>
+          <p>· 시세표 금액은 공통지원금 기준이며, 선택약정 희망 시 별도 문의.</p>
         </div>
 
         <div className="px-6 py-3">
@@ -232,7 +233,7 @@ function PriceCell({ v }: { v?: number | null }) {
         neg ? 'text-red-600' : low ? 'text-red-500' : 'text-zinc-900'
       }`}
     >
-      {Math.round(man)}
+      {formatMan(v)}
     </td>
   );
 }

@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { getSupabaseAdmin } from '@/lib/supabase';
+import { compareDevicesForList } from '@/lib/fmt';
 import { RebateTable } from './RebateTable';
 
 export const dynamic = 'force-dynamic';
@@ -16,7 +17,7 @@ export default async function RebatesPage({ searchParams }: { searchParams: Sear
   const [{ data: vendors }, { data: tiers }, { data: devices }] = await Promise.all([
     sb.from('price_vendors').select('id, name').eq('carrier', carrier).eq('active', true).order('display_order').order('name'),
     sb.from('price_plan_tiers').select('id, code, display_order').eq('carrier', carrier).eq('active', true).order('display_order'),
-    sb.from('price_devices').select('id, model_code, nickname, display_order').eq('active', true).order('display_order').order('nickname'),
+    sb.from('price_devices').select('id, model_code, nickname, manufacturer, retail_price_krw, display_order').eq('active', true),
   ]);
 
   // 각 거래처의 최신 시트만 리베이트 조회
@@ -67,7 +68,7 @@ export default async function RebatesPage({ searchParams }: { searchParams: Sear
         carrier={carrier}
         vendors={vendors ?? []}
         tiers={tiers ?? []}
-        devices={devices ?? []}
+        devices={[...(devices ?? [])].sort(compareDevicesForList)}
         rebates={rebates ?? []}
         latestSheetByVendor={Object.fromEntries(latestSheetByVendor)}
       />

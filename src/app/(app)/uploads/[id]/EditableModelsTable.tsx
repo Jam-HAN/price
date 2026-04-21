@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import type { SheetExtraction } from '@/lib/vision-schema';
 import type { CellFlag, CellField } from '@/lib/consistency';
+import { formatMan } from '@/lib/fmt';
 import { updateCellAction } from './cell-actions';
 
 type FlagMap = Record<string, CellFlag>; // key = model_code_raw|tier|field
@@ -20,6 +21,18 @@ export function EditableModelsTable({
   const tierCodes = Array.from(
     new Set((raw.models ?? []).flatMap((m) => (m.tiers ?? []).map((t) => t.plan_tier_code))),
   );
+  const sortedModels = [...(raw.models ?? [])].sort((a, b) => {
+    const grp = (nick: string) => {
+      const n = nick.toLowerCase();
+      if (n.includes('갤럭시') || n.includes('galaxy')) return 0;
+      if (n.includes('아이폰') || n.includes('iphone')) return 1;
+      return 2;
+    };
+    const ga = grp(a.nickname);
+    const gb = grp(b.nickname);
+    if (ga !== gb) return ga - gb;
+    return (b.retail_price_krw ?? 0) - (a.retail_price_krw ?? 0);
+  });
 
   return (
     <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white">
@@ -53,7 +66,7 @@ export function EditableModelsTable({
             </tr>
           </thead>
           <tbody>
-            {(raw.models ?? []).map((m) => (
+            {sortedModels.map((m) => (
               <tr key={m.model_code_raw} className="border-t border-zinc-100">
                 <td className="sticky left-0 z-10 bg-white px-2 py-1.5 font-medium">
                   <div>{m.nickname}</div>
@@ -103,7 +116,7 @@ function cellKey(model: string, tier: string | null, field: CellField) {
 function ThTypeHeader() {
   return (
     <>
-      <th className="border-l border-zinc-200 px-1 py-1 text-[10px] font-normal text-sky-700">공시</th>
+      <th className="border-l border-zinc-200 px-1 py-1 text-[10px] font-normal text-sky-700">공통</th>
       <th className="px-1 py-1 text-[10px] font-normal">공·010</th>
       <th className="px-1 py-1 text-[10px] font-normal">공·MNP</th>
       <th className="px-1 py-1 text-[10px] font-normal">공·기변</th>
@@ -172,7 +185,8 @@ function EditCell({
 
   const displayValue = local ?? value;
   const isRetail = field === 'retail_price_krw';
-  const divisor = isRetail ? 1000 : 10000; // 출고가: 천원, 단가: 만원
+  // 전 페이지 공통: 만원 단위 ##.# 형식
+  const divisor = 10000;
   const isSubsidy = field === 'subsidy_krw';
 
   const severityCls =
@@ -238,7 +252,7 @@ function EditCell({
       {editing ? (
         <input
           autoFocus
-          defaultValue={displayValue == null ? '' : (displayValue / divisor).toString()}
+          defaultValue={displayValue == null ? '' : formatMan(displayValue)}
           disabled={pending}
           onBlur={(e) => commit(e.currentTarget.value)}
           onKeyDown={(e) => {
@@ -253,9 +267,7 @@ function EditCell({
           onClick={() => setEditing(true)}
           className={`w-full cursor-pointer rounded px-0.5 hover:bg-zinc-100 ${displayValue == null ? 'text-zinc-300' : ''} ${displayValue != null && displayValue < 0 ? 'text-red-600' : ''}`}
         >
-          {displayValue == null
-            ? '—'
-            : (displayValue / divisor).toFixed((displayValue / divisor) % 1 === 0 ? 0 : 1)}
+          {formatMan(displayValue)}
         </button>
       )}
       {err ? <div className="absolute -bottom-4 right-0 z-10 whitespace-nowrap text-[9px] text-red-600">{err}</div> : null}

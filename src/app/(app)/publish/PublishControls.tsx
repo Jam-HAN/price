@@ -73,7 +73,7 @@ export function PublishControls({
           onChange={(e) => update('contract', e.target.value)}
           className="mt-1 w-28 rounded border border-zinc-300 px-2 py-1.5 text-sm"
         >
-          <option value="common">공통(공시)</option>
+          <option value="common">공통지원금</option>
           <option value="select">선약</option>
         </select>
       </label>

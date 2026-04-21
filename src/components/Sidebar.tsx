@@ -4,7 +4,7 @@ const NAV = [
   { href: '/dashboard', label: '대시보드', phase: '' },
   { href: '/uploads', label: '단가표 업로드', phase: '' },
   { type: 'section', label: '데이터' },
-  { href: '/subsidies', label: '공시지원금 (통신사)', phase: '' },
+  { href: '/subsidies', label: '공통지원금 (통신사)', phase: '' },
   { href: '/rebates', label: '리베이트 (거래처)', phase: '' },
   { href: '/matrix', label: 'Net가 매트릭스', phase: '' },
   { href: '/margins', label: '마진 설정', phase: '' },

@@ -75,7 +75,7 @@ function checkRange(sheet: SheetExtraction): CellFlag[] {
             value: t.subsidy_krw,
             severity: 'red',
             reason: 'range',
-            detail: `공시지원금 범위 이탈 (${t.subsidy_krw.toLocaleString()}원, 허용 0~80만)`,
+            detail: `공통지원금 범위 이탈 (${t.subsidy_krw.toLocaleString()}원, 허용 0~80만)`,
           });
         }
       }
@@ -129,7 +129,7 @@ function checkMonotonic(sheet: SheetExtraction, tierOrder: string[]): CellFlag[]
             value: curr.subsidy_krw,
             severity: 'yellow',
             reason: 'monotonic',
-            detail: `${curr.plan_tier_code} 공시(${curr.subsidy_krw / 1000}천) > ${prev.plan_tier_code} 공시(${prev.subsidy_krw / 1000}천)`,
+            detail: `${curr.plan_tier_code} 공통(${curr.subsidy_krw / 1000}천) > ${prev.plan_tier_code} 공통(${prev.subsidy_krw / 1000}천)`,
           });
         }
       }

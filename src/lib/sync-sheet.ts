@@ -110,7 +110,7 @@ export async function syncSheetToNormalized(sheetId: string) {
     const { error } = await sb.from('price_vendor_quotes').insert(dedupedQuotes);
     if (error) throw new Error(`quotes insert: ${error.message}`);
   }
-  // 공시지원금은 carrier 레벨이라 upsert (최신 시트가 덮어씀)
+  // 공통지원금은 carrier 레벨이라 upsert (최신 시트가 덮어씀)
   if (dedupedCarrierSubsidies.length) {
     const rows = dedupedCarrierSubsidies.map((r) => ({ ...r, updated_at: new Date().toISOString() }));
     const { error } = await sb
@@ -131,7 +131,7 @@ export async function syncSheetToNormalized(sheetId: string) {
     if (error) throw new Error(`policies insert: ${error.message}`);
   }
 
-  // 공시지원금 단위 자동 보정(기존 vendor_subsidies 기준 — 신규 구조에서는 no-op 가능)
+  // 공통지원금 단위 자동 보정(기존 vendor_subsidies 기준 — 신규 구조에서는 no-op 가능)
   await sb.rpc('price_autocorrect_subsidy_units', { p_sheet_id: sheetId });
 
   // 매트릭스/단가표 뷰에 노출되도록 상태를 'confirmed'로 마킹. 별도 확정 단계 없이 자동.

@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { getSupabaseAdmin } from '@/lib/supabase';
+import { formatMan, compareDevicesForList } from '@/lib/fmt';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,6 +30,14 @@ type NetRow = {
   activation_type: 'new010' | 'mnp' | 'change';
   net_price: number;
 };
+
+// 매트릭스 행을 Samsung 내림차순 → Apple 내림차순 순서로 정렬하기 위한 매뉴팩처러 추론
+function inferManufacturer(nickname: string): string | null {
+  const n = nickname.toLowerCase();
+  if (n.includes('갤럭시') || n.includes('galaxy')) return 'Samsung';
+  if (n.includes('아이폰') || n.includes('iphone')) return 'Apple';
+  return null;
+}
 
 export default async function MatrixPage({ searchParams }: { searchParams: SearchParams }) {
   const sp = await searchParams;
@@ -62,8 +71,14 @@ export default async function MatrixPage({ searchParams }: { searchParams: Searc
   }
 
   const devices = Array.from(deviceMap.entries())
-    .map(([id, d]) => ({ id, ...d }))
-    .sort((a, b) => a.order - b.order || a.name.localeCompare(b.name));
+    .map(([id, d]) => ({
+      id,
+      ...d,
+      manufacturer: inferManufacturer(d.name),
+      retail_price_krw: d.retail,
+      nickname: d.name,
+    }))
+    .sort(compareDevicesForList);
 
   return (
     <div className="space-y-5">
@@ -124,7 +139,7 @@ export default async function MatrixPage({ searchParams }: { searchParams: Searc
                   <div className="font-mono text-[10px] text-zinc-400">{d.code}</div>
                 </td>
                 <td className="px-2 py-1.5 text-right font-mono text-zinc-500">
-                  {(d.retail / 10000).toFixed(1)}
+                  {formatMan(d.retail)}
                 </td>
                 {tierCodes.map((code) =>
                   ACTIVATIONS.map((a) => {
@@ -137,7 +152,7 @@ export default async function MatrixPage({ searchParams }: { searchParams: Searc
                     return (
                       <td key={`${code}-${a.v}`} title={`거래처: ${cell.vendor}`}
                         className={`px-1 py-1 text-right font-mono ${neg ? 'text-red-600 font-semibold' : 'text-zinc-900'} ${leftBorder}`}>
-                        {(cell.price / 10000).toFixed(1)}
+                        {formatMan(cell.price)}
                       </td>
                     );
                   }),

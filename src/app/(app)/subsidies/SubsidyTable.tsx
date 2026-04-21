@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import { formatMan } from '@/lib/fmt';
 import { updateCarrierSubsidy } from './actions';
 
 type Device = { id: string; model_code: string; nickname: string; series: string | null; retail_price_krw: number };
@@ -42,7 +43,7 @@ export function SubsidyTable({
                 <div className="font-mono text-[10px] text-zinc-400">{d.model_code}</div>
               </td>
               <td className="px-2 py-1.5 text-right font-mono text-zinc-500">
-                {(d.retail_price_krw / 1000).toFixed(0)}
+                {formatMan(d.retail_price_krw)}
               </td>
               {tiers.map((t) => (
                 <SubsidyCell
@@ -89,8 +90,8 @@ function SubsidyCell({
         setErr('숫자 아님');
         return;
       }
-      // 입력은 천원 단위. DB는 원 단위.
-      next = Math.round(n * 1000);
+      // 입력은 만원 단위. DB는 원 단위.
+      next = Math.round(n * 10000);
     }
     if (next === local) {
       setEditing(false);
@@ -113,7 +114,7 @@ function SubsidyCell({
       {editing ? (
         <input
           autoFocus
-          defaultValue={local == null ? '' : (local / 1000).toString()}
+          defaultValue={local == null ? '' : formatMan(local)}
           disabled={pending}
           onBlur={(e) => commit(e.currentTarget.value)}
           onKeyDown={(e) => {
@@ -128,7 +129,7 @@ function SubsidyCell({
           onClick={() => setEditing(true)}
           className={`w-full cursor-pointer rounded px-1 py-0.5 hover:bg-zinc-100 ${local == null ? 'text-zinc-300' : ''}`}
         >
-          {local == null ? '—' : (local / 1000).toFixed(0)}
+          {formatMan(local)}
         </button>
       )}
       {err ? <div className="text-[9px] text-red-600">{err}</div> : null}
