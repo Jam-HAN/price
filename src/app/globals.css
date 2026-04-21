@@ -1,18 +1,41 @@
 @import "tailwindcss";
 
-/* ─── 토큰 ─────────────────────────────────────────── */
+/* ─── Claude-inspired 토큰 ────────────────────────── */
 :root {
   color-scheme: light;
-  --bg: #fafafa;            /* page bg */
-  --surface: #ffffff;       /* card bg */
-  --border: #e4e4e7;        /* zinc-200 */
-  --border-strong: #d4d4d8; /* zinc-300 */
-  --muted: #71717a;         /* zinc-500 */
-  --fg: #18181b;            /* zinc-900 */
-  --primary: #18181b;
-  --primary-fg: #ffffff;
-  --ring: #a1a1aa;          /* zinc-400 */
-  --radius: 12px;
+
+  /* 배경 */
+  --bg:             #faf9f5;  /* 따뜻한 크림 */
+  --surface:        #ffffff;
+  --surface-subtle: #f5f4ee;
+
+  /* 선 */
+  --border:         #ece9df;
+  --border-strong:  #d6d1c2;
+
+  /* 텍스트 */
+  --fg:             #1a1a19;
+  --fg-muted:       #78746a;
+  --fg-subtle:      #a7a196;
+
+  /* 액센트 (Anthropic 오렌지) */
+  --accent:         #d97757;
+  --accent-hover:   #c56846;
+  --accent-subtle:  #f7eee9;
+
+  /* 프라이머리(텍스트 기준) */
+  --primary:        #1a1a19;
+  --primary-hover:  #2f2e2c;
+  --primary-fg:     #ffffff;
+
+  /* 상태 */
+  --success:        #6b8e5a;
+  --danger:         #c04c3f;
+  --warning:        #c9813c;
+
+  --radius-sm:      8px;
+  --radius:         12px;
+  --radius-lg:      16px;
 }
 
 html, body {
@@ -22,63 +45,113 @@ html, body {
   font-feature-settings: "ss01", "ss02", "tnum";
 }
 
-/* 폼 요소 기본 색 */
+/* 헤딩은 serif */
+h1, h2, h3, .serif {
+  font-family: var(--font-serif), "Tiempos Headline", ui-serif, Georgia, "Times New Roman", serif;
+  letter-spacing: -0.015em;
+  font-feature-settings: "ss01";
+}
+
 input, select, textarea, button {
   color: inherit;
-  background-color: #ffffff;
+  background-color: var(--surface);
 }
 
 input[type="checkbox"] {
-  accent-color: var(--primary);
+  accent-color: var(--accent);
 }
 
-/* ─── 재사용 유틸 ────────────────────────────────── */
+::selection {
+  background: var(--accent-subtle);
+  color: var(--accent-hover);
+}
+
+/* ─── 재사용 컴포넌트 클래스 ────────────────────── */
 @layer components {
-  /* 카드 */
   .card {
-    @apply rounded-xl border border-zinc-200 bg-white;
+    @apply rounded-xl border bg-white;
+    border-color: var(--border);
   }
 
-  /* 페이지 타이틀 */
   .page-title {
-    @apply text-2xl font-bold tracking-tight;
+    @apply text-[28px] font-semibold leading-tight;
+    font-family: var(--font-serif), "Tiempos Headline", ui-serif, Georgia, serif;
+    letter-spacing: -0.02em;
   }
 
-  /* 섹션 헤더 (카드 상단 etc) */
+  .page-sub {
+    color: var(--fg-muted);
+    @apply mt-1 text-sm;
+  }
+
   .section-header {
-    @apply border-b border-zinc-100 bg-zinc-50 px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-zinc-500;
+    @apply border-b bg-[color:var(--surface-subtle)] px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.08em];
+    border-color: var(--border);
+    color: var(--fg-muted);
   }
 
-  /* 버튼 */
   .btn-primary {
-    @apply rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50;
+    @apply rounded-lg px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50;
+    background: var(--primary);
+    color: var(--primary-fg);
   }
+  .btn-primary:hover { background: var(--primary-hover); }
+
+  .btn-accent {
+    @apply rounded-lg px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50;
+    background: var(--accent);
+    color: #fff;
+  }
+  .btn-accent:hover { background: var(--accent-hover); }
+
   .btn-secondary {
-    @apply rounded-lg border border-zinc-200 bg-white px-4 py-2 text-sm text-zinc-700 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50;
+    @apply rounded-lg border bg-white px-4 py-2 text-sm transition disabled:cursor-not-allowed disabled:opacity-50;
+    border-color: var(--border);
+    color: var(--fg);
   }
+  .btn-secondary:hover { background: var(--surface-subtle); }
+
   .btn-ghost {
-    @apply rounded-lg px-3 py-1.5 text-sm text-zinc-600 transition hover:bg-zinc-100;
+    @apply rounded-lg px-3 py-1.5 text-sm transition;
+    color: var(--fg-muted);
   }
-  .btn-danger {
-    @apply rounded-lg bg-red-50 px-3 py-1.5 text-sm font-medium text-red-600 transition hover:bg-red-100;
+  .btn-ghost:hover {
+    background: var(--surface-subtle);
+    color: var(--fg);
   }
 
-  /* pill 탭 컨테이너 */
+  .btn-danger {
+    @apply rounded-lg px-3 py-1.5 text-sm font-medium transition;
+    background: #faeeec;
+    color: var(--danger);
+  }
+  .btn-danger:hover { background: #f7dfdc; }
+
   .pill-tabs {
-    @apply flex items-center gap-0.5 rounded-full border border-zinc-200 bg-white p-1 text-xs;
+    @apply flex items-center gap-0.5 rounded-full border bg-white p-1 text-xs;
+    border-color: var(--border);
   }
   .pill-tab {
     @apply rounded-full px-4 py-1 transition;
   }
   .pill-tab-active {
-    @apply bg-zinc-900 text-white;
+    background: var(--primary);
+    color: var(--primary-fg);
   }
   .pill-tab-idle {
-    @apply text-zinc-500 hover:bg-zinc-50;
+    color: var(--fg-muted);
+  }
+  .pill-tab-idle:hover {
+    background: var(--surface-subtle);
+    color: var(--fg);
   }
 
-  /* 입력 */
   .input {
-    @apply rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-zinc-500;
+    @apply rounded-lg border bg-white px-3 py-2 text-sm outline-none transition;
+    border-color: var(--border-strong);
+  }
+  .input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-subtle);
   }
 }

@@ -18,7 +18,7 @@ export default async function UploadsPage() {
   return (
     <div className="space-y-5">
       <header>
-        <h1 className="text-2xl font-bold tracking-tight">업로드</h1>
+        <h1 className="page-title">업로드</h1>
       </header>
 
       <section className="rounded-xl border border-zinc-200 bg-white p-6">

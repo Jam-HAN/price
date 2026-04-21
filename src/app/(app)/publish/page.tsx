@@ -100,7 +100,7 @@ export default async function PublishPage({ searchParams }: { searchParams: Sear
   return (
     <div className="space-y-5">
       <header>
-        <h1 className="text-2xl font-bold tracking-tight">고객용</h1>
+        <h1 className="page-title">고객용</h1>
       </header>
 
       <PublishControls
