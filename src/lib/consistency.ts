@@ -135,28 +135,8 @@ function checkMonotonic(sheet: SheetExtraction, tierOrder: string[]): CellFlag[]
       }
     }
 
-    // quote monotonic (상위 tier 단가 >= 하위 tier 단가 가정, 즉 내려갈수록 ≤)
-    for (const blockKey of ['common', 'select'] as const) {
-      for (const actKey of ['new010', 'mnp', 'change'] as const) {
-        for (let i = 1; i < ordered.length; i++) {
-          const prev = ordered[i - 1][blockKey]?.[actKey];
-          const curr = ordered[i][blockKey]?.[actKey];
-          if (prev == null || curr == null) continue;
-          // 하위 tier 값이 상위보다 5만원 이상 크면 비정상 (상급 구간이 단가 더 좋음이 기본)
-          if (curr > prev + 50000) {
-            flags.push({
-              model_code_raw: m.model_code_raw,
-              plan_tier_code: ordered[i].plan_tier_code,
-              field: `${blockKey}.${actKey}` as CellField,
-              value: curr,
-              severity: 'yellow',
-              reason: 'monotonic',
-              detail: `${ordered[i].plan_tier_code} ${blockKey}.${actKey} (${curr}) > ${ordered[i - 1].plan_tier_code} (${prev}) — 상위구간보다 하위구간 단가 큼`,
-            });
-          }
-        }
-      }
-    }
+    // 단가(quote)의 monotonic 방향은 거래처 구조에 따라 달라서 false positive 많음 → 제외.
+    // subsidy 단조성만 유지.
   }
   return flags;
 }
