@@ -53,3 +53,33 @@ export async function deleteDevice(fd: FormData) {
   if (error) throw new Error(error.message);
   revalidatePath('/devices');
 }
+
+/** 단일 디바이스 활성화/비활성화 즉시 토글 */
+export async function toggleDeviceActive(input: { id: string; active: boolean }) {
+  const sb = getSupabaseAdmin();
+  const { error } = await sb.from('price_devices').update({ active: input.active }).eq('id', input.id);
+  if (error) throw new Error(error.message);
+  revalidatePath('/devices');
+  revalidatePath('/subsidies');
+  revalidatePath('/rebates');
+  revalidatePath('/matrix');
+  revalidatePath('/publish');
+  return { ok: true };
+}
+
+/** 벌크 활성화 상태 변경 */
+export async function bulkSetActive(input: { ids: string[]; active: boolean }) {
+  if (input.ids.length === 0) return { ok: true, count: 0 };
+  const sb = getSupabaseAdmin();
+  const { error, count } = await sb
+    .from('price_devices')
+    .update({ active: input.active }, { count: 'exact' })
+    .in('id', input.ids);
+  if (error) throw new Error(error.message);
+  revalidatePath('/devices');
+  revalidatePath('/subsidies');
+  revalidatePath('/rebates');
+  revalidatePath('/matrix');
+  revalidatePath('/publish');
+  return { ok: true, count };
+}

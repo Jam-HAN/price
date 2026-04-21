@@ -1,12 +1,17 @@
+import Link from 'next/link';
 import { getSupabaseAdmin } from '@/lib/supabase';
-import { formatKrw } from '@/lib/fmt';
 import { createDevice, updateDevice, deleteDevice } from './actions';
+import { DeviceCurator } from './DeviceCurator';
 
 export const dynamic = 'force-dynamic';
 
 const CATEGORIES = ['5G', 'LTE', 'S-D', '기타'] as const;
 
-export default async function DevicesPage() {
+type SearchParams = Promise<{ mode?: 'curate' | 'edit' }>;
+
+export default async function DevicesPage({ searchParams }: { searchParams: SearchParams }) {
+  const sp = await searchParams;
+  const mode = sp.mode ?? 'curate';
   const sb = getSupabaseAdmin();
   const { data: devices } = await sb
     .from('price_devices')
@@ -16,11 +21,35 @@ export default async function DevicesPage() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-bold tracking-tight">모델</h1>
-        <p className="mt-1 text-sm text-zinc-500">단말기 마스터 — 출고가 기준 (총 {(devices ?? []).length}개)</p>
+      <header className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">모델</h1>
+          <p className="mt-1 text-sm text-zinc-500">
+            단말기 마스터 (총 {(devices ?? []).length}개 · 활성만 업로드에 반영)
+          </p>
+        </div>
+        <div className="flex items-center gap-1 rounded-lg border border-zinc-200 bg-white p-1 text-sm">
+          <Link
+            href="/devices?mode=curate"
+            className={`rounded px-3 py-1.5 ${mode === 'curate' ? 'bg-zinc-900 text-white' : 'text-zinc-600 hover:bg-zinc-100'}`}
+          >
+            판매 설정
+          </Link>
+          <Link
+            href="/devices?mode=edit"
+            className={`rounded px-3 py-1.5 ${mode === 'edit' ? 'bg-zinc-900 text-white' : 'text-zinc-600 hover:bg-zinc-100'}`}
+          >
+            상세 편집
+          </Link>
+        </div>
       </header>
 
+      {mode === 'curate' ? (
+        <DeviceCurator devices={devices ?? []} />
+      ) : null}
+
+      {mode !== 'edit' ? null : (
+      <>
       <section className="rounded-xl border border-zinc-200 bg-white p-4">
         <h2 className="mb-3 text-sm font-semibold">신규 추가</h2>
         <form action={createDevice} className="grid grid-cols-2 gap-2 md:grid-cols-4">
@@ -125,6 +154,8 @@ export default async function DevicesPage() {
           </tbody>
         </table>
       </section>
+      </>
+      )}
     </div>
   );
 }
