@@ -97,6 +97,10 @@ export async function autoRegisterMissingDevices(formData: FormData) {
       : null;
 
     // 새 디바이스는 정규화된 코드로 저장 (캐노니컬 폼)
+    // 출고가 미상이면 등록 보류 (Claude 추측 방지)
+    if (model.retail_price_krw == null) {
+      continue;
+    }
     let modelCode = normalizedCode;
     if (deviceByCode.has(modelCode)) modelCode = `${modelCode}_${Date.now().toString(36)}`;
 

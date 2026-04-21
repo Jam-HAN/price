@@ -17,7 +17,7 @@ export default async function RebatesPage({ searchParams }: { searchParams: Sear
   const [{ data: vendors }, { data: tiers }, { data: devices }] = await Promise.all([
     sb.from('price_vendors').select('id, name').eq('carrier', carrier).eq('active', true).order('display_order').order('name'),
     sb.from('price_plan_tiers').select('id, code, display_order').eq('carrier', carrier).eq('active', true).order('display_order'),
-    sb.from('price_devices').select('id, model_code, nickname, manufacturer, retail_price_krw, display_order').eq('active', true),
+    sb.from('price_devices').select('id, model_code, nickname, manufacturer, series, storage, retail_price_krw, display_order').eq('active', true),
   ]);
 
   // 각 거래처의 최신 시트만 리베이트 조회

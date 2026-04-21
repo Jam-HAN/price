@@ -15,8 +15,9 @@ export function normalizeDeviceCode(raw: string): string {
   if (!raw) return raw;
   const cleaned = raw.toUpperCase().replace(/\s+/g, '');
 
-  // Samsung 패턴: (SM-)? [A-Z]\d{2,4} N? K? [_]? \d+ [G|T]? B?
-  const m = cleaned.match(/^(?:SM-)?([A-Z]\d{2,4})N?K?[_-]?(\d+(?:G|T)?B?)?$/);
+  // Samsung 패턴: (SM-)? [A-Z]\d{3}(선택적으로 N·K·연결자) + optional storage
+  // family는 반드시 3자리 숫자 (S942, F766, A366 등) — greedy overmatch 방지
+  const m = cleaned.match(/^(?:SM-)?([A-Z]\d{3})N?K?[_-]?(\d+(?:G|T)?B?)?$/);
   if (!m) return raw; // 인식 실패 → 원본 유지
 
   const family = m[1];

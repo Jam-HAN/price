@@ -34,7 +34,7 @@ export default async function PublishPage({ searchParams }: { searchParams: Sear
 
   const { data: rows } = await sb
     .from('price_customer_view')
-    .select('vendor_id, vendor_name, carrier, device_id, device_name, device_code, device_series, retail_price_krw, plan_tier_code, contract_type, activation_type, net_price, margin_krw, customer_price')
+    .select('vendor_id, vendor_name, carrier, device_id, device_name, device_code, device_series, device_storage, retail_price_krw, plan_tier_code, contract_type, activation_type, net_price, margin_krw, customer_price')
     .in('carrier', ['SKT', 'KT', 'LGU+'])
     .eq('contract_type', contract)
     .in('activation_type', ['mnp', 'change'])
@@ -48,6 +48,7 @@ export default async function PublishPage({ searchParams }: { searchParams: Sear
     name: string;
     code: string;
     series: string | null;
+    storage: string | null;
     retail: number;
     skt: CarrierKey;
     kt: CarrierKey;
@@ -66,6 +67,7 @@ export default async function PublishPage({ searchParams }: { searchParams: Sear
         name: r.device_name,
         code: r.device_code,
         series: r.device_series,
+        storage: r.device_storage,
         retail: r.retail_price_krw,
         skt: {},
         kt: {},
@@ -86,7 +88,7 @@ export default async function PublishPage({ searchParams }: { searchParams: Sear
     ...s,
     rows: devices
       .filter((d) => s.series.includes(d.series ?? 'misc'))
-      .map((d) => ({ ...d, nickname: d.name, retail_price_krw: d.retail }))
+      .map((d) => ({ ...d, nickname: d.name, retail_price_krw: d.retail, model_code: d.code }))
       .sort(compareDevicesForList),
   })).filter((s) => s.rows.length > 0);
 

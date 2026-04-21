@@ -24,7 +24,7 @@ const ParsedModel = z.object({
   model_code_raw: z.string().describe('거래처가 쓰는 원본 코드 (예: SM-S942N_512G, UIP17-256, AIP17P_256)'),
   nickname: z.string().describe('팻네임 (예: 갤럭시 S26, 아이폰17 256G)'),
   storage: z.string().nullable().describe('용량 (예: 256G, 512G, 1TB). 없으면 null'),
-  retail_price_krw: z.number().describe('출고가 (원). 이미지가 천원 단위면 ×1000해서 저장'),
+  retail_price_krw: z.number().nullable().describe('출고가 (원). 이미지가 천원 단위면 ×1000해서 저장. **이미지에 명시되지 않으면 반드시 null** (추측/기억으로 채우지 말 것)'),
   is_new: z.boolean().describe('"(New)"이나 신규 표시 있으면 true'),
   tiers: z.array(ModelTier),
 });

@@ -23,6 +23,7 @@ type NetRow = {
   device_code: string;
   device_order: number;
   device_series: string | null;
+  device_storage: string | null;
   retail_price_krw: number;
   plan_tier_code: string;
   tier_order: number;
@@ -40,7 +41,7 @@ export default async function MatrixPage({ searchParams }: { searchParams: Searc
 
   const [{ data: tiers }, { data: rows }] = await Promise.all([
     sb.from('price_plan_tiers').select('id, code, display_order').eq('carrier', carrier).eq('active', true).order('display_order'),
-    sb.from('price_latest_net').select('device_id, device_name, device_code, device_order, device_series, retail_price_krw, plan_tier_code, tier_order, vendor_name, contract_type, activation_type, net_price')
+    sb.from('price_latest_net').select('device_id, device_name, device_code, device_order, device_series, device_storage, retail_price_krw, plan_tier_code, tier_order, vendor_name, contract_type, activation_type, net_price')
       .eq('carrier', carrier).eq('contract_type', contract),
   ]);
 
@@ -48,13 +49,13 @@ export default async function MatrixPage({ searchParams }: { searchParams: Searc
 
   // 디바이스 × tier × activation 조합별 최저 Net 뽑기
   const cellBest = new Map<string, { price: number; vendor: string }>();
-  const deviceMap = new Map<string, { name: string; code: string; order: number; retail: number; series: string | null }>();
+  const deviceMap = new Map<string, { name: string; code: string; order: number; retail: number; series: string | null; storage: string | null }>();
 
   for (const r of (rows ?? []) as NetRow[]) {
     if (!deviceMap.has(r.device_id)) {
       deviceMap.set(r.device_id, {
         name: r.device_name, code: r.device_code, order: r.device_order,
-        retail: r.retail_price_krw, series: r.device_series,
+        retail: r.retail_price_krw, series: r.device_series, storage: r.device_storage,
       });
     }
     const key = `${r.device_id}|${r.plan_tier_code}|${r.activation_type}`;
@@ -70,6 +71,7 @@ export default async function MatrixPage({ searchParams }: { searchParams: Searc
       ...d,
       retail_price_krw: d.retail,
       nickname: d.name,
+      model_code: d.code,
     }))
     .sort(compareDevicesForList);
 

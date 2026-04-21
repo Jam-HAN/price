@@ -62,18 +62,53 @@ function seriesOrder(series: string | null | undefined, nickname: string | null 
 }
 
 /**
- * 디바이스 리스트 정렬자 — 시리즈 순서(최신 먼저) → 시리즈 내 출고가 내림차순
+ * 변형(variant) 순서 — Samsung: family 번호 오름차순 (S942 base < S947 plus < S948 ultra)
+ * Apple: nickname 기반 (base < plus < pro < pro max)
+ */
+function variantOrder(code: string | null | undefined, nickname: string | null | undefined): number {
+  const c = code ?? '';
+  // Samsung family number에서 변형 추출 (SM-S942N → 942)
+  const m = c.match(/^SM-[A-Z](\d{3})/);
+  if (m) return parseInt(m[1], 10);
+
+  const n = (nickname ?? '').toLowerCase();
+  if (n.includes('pro max') || n.includes('프로 맥스')) return 4;
+  if (n.includes(' pro') || n.includes('프로') || n.includes('ultra') || n.includes('울트라')) return 3;
+  if (n.includes('plus') || n.includes('+') || n.includes('max')) return 2;
+  if (n.includes(' air') || n.includes('에어')) return 1;
+  return 0;
+}
+
+/** 용량을 원 단위 정수로 변환 (256G → 256, 1T → 1024) · null이면 0 */
+function storageOrder(storage: string | null | undefined): number {
+  if (!storage) return 0;
+  const m = storage.match(/^(\d+)\s*([GT])/i);
+  if (!m) return 0;
+  const num = parseInt(m[1], 10);
+  return m[2].toUpperCase() === 'T' ? num * 1024 : num;
+}
+
+/**
+ * 디바이스 리스트 정렬자:
+ *   1차: 시리즈 순서 (최신 먼저)
+ *   2차: 변형 (base → plus → ultra / Pro / Pro Max)
+ *   3차: 용량 오름차순 (null → 256 → 512 → 1TB)
  */
 export function compareDevicesForList<T extends {
+  model_code?: string | null;
   nickname?: string | null;
   manufacturer?: string | null;
   series?: string | null;
+  storage?: string | null;
   retail_price_krw?: number | null;
 }>(a: T, b: T): number {
   const sa = seriesOrder(a.series, a.nickname);
   const sb = seriesOrder(b.series, b.nickname);
   if (sa !== sb) return sa - sb;
-  const ra = a.retail_price_krw ?? 0;
-  const rb = b.retail_price_krw ?? 0;
-  return rb - ra;
+  const va = variantOrder(a.model_code, a.nickname);
+  const vb = variantOrder(b.model_code, b.nickname);
+  if (va !== vb) return va - vb;
+  const sta = storageOrder(a.storage);
+  const stb = storageOrder(b.storage);
+  return sta - stb;
 }

@@ -21,8 +21,10 @@ export function EditableModelsTable({
   const tierCodes = Array.from(
     new Set((raw.models ?? []).flatMap((m) => (m.tiers ?? []).map((t) => t.plan_tier_code))),
   );
-  // raw_ocr_json에 series 필드 없음 — nickname 기반으로 비교 함수가 추정
-  const sortedModels = [...(raw.models ?? [])].sort(compareDevicesForList);
+  // raw_ocr_json.models를 comparator 시그니처에 맞게 매핑 (model_code는 code_raw 사용)
+  const sortedModels = [...(raw.models ?? [])]
+    .map((m) => ({ ...m, model_code: m.model_code_raw }))
+    .sort(compareDevicesForList);
 
   return (
     <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white">
