@@ -18,19 +18,15 @@ export default async function UploadsPage() {
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="text-2xl font-bold tracking-tight">단가표 업로드</h1>
-        <p className="mt-1 text-sm text-zinc-500">
-          거래처 카톡 단가표 이미지 → Claude Vision으로 파싱 → 검수 후 저장
-        </p>
+        <h1 className="text-2xl font-bold tracking-tight">업로드</h1>
       </header>
 
       <section className="rounded-xl border border-zinc-200 bg-white p-6">
-        <h2 className="mb-3 text-sm font-semibold">신규 업로드</h2>
         <UploadForm vendors={vendors ?? []} />
       </section>
 
       <section className="overflow-hidden rounded-xl border border-zinc-200 bg-white">
-        <div className="border-b border-zinc-100 bg-zinc-50 px-4 py-2 text-sm font-semibold">최근 업로드</div>
+        <div className="border-b border-zinc-100 bg-zinc-50 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">최근</div>
         <table className="w-full text-sm">
           <thead className="bg-zinc-50 text-xs uppercase tracking-wide text-zinc-500">
             <tr>

@@ -100,10 +100,7 @@ export default async function PublishPage({ searchParams }: { searchParams: Sear
   return (
     <div className="space-y-4">
       <header>
-        <h1 className="text-2xl font-bold tracking-tight">고객용 단가표</h1>
-        <p className="mt-1 text-sm text-zinc-500">
-          같은 통신사 2곳 중 더 싼 고객가(Net + 마진) 자동 선택 · 만원 단위
-        </p>
+        <h1 className="text-2xl font-bold tracking-tight">고객용</h1>
       </header>
 
       <PublishControls

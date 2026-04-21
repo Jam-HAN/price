@@ -78,25 +78,20 @@ export default async function MatrixPage({ searchParams }: { searchParams: Searc
   return (
     <div className="space-y-5">
       <header className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Net가 매트릭스</h1>
-          <p className="mt-1 text-sm text-zinc-500">
-            통신사별 전체 요금제 × 개통유형. 값은 만원 단위 (예: 15.5 = 15만5천원). 거래처 중 최저 Net 표시, 셀 hover로 거래처 확인.
-          </p>
-        </div>
+        <h1 className="text-2xl font-bold tracking-tight">Net가</h1>
         <div className="flex gap-2">
-          <div className="flex items-center gap-1 rounded-lg border border-zinc-200 bg-white p-1 text-sm">
+          <div className="flex items-center gap-1 rounded-full border border-zinc-200 bg-white p-1 text-xs">
             {CARRIERS.map((c) => (
               <Link key={c} href={`/matrix?carrier=${c}&contract=${contract}`}
-                className={`rounded px-3 py-1.5 ${c === carrier ? 'bg-zinc-900 text-white' : 'text-zinc-600 hover:bg-zinc-100'}`}>
+                className={`rounded-full px-4 py-1 ${c === carrier ? 'bg-zinc-900 text-white' : 'text-zinc-500 hover:bg-zinc-50'}`}>
                 {c}
               </Link>
             ))}
           </div>
-          <div className="flex items-center gap-1 rounded-lg border border-zinc-200 bg-white p-1 text-sm">
+          <div className="flex items-center gap-1 rounded-full border border-zinc-200 bg-white p-1 text-xs">
             {CONTRACTS.map((c) => (
               <Link key={c.v} href={`/matrix?carrier=${carrier}&contract=${c.v}`}
-                className={`rounded px-3 py-1.5 ${c.v === contract ? 'bg-zinc-900 text-white' : 'text-zinc-600 hover:bg-zinc-100'}`}>
+                className={`rounded-full px-4 py-1 ${c.v === contract ? 'bg-zinc-900 text-white' : 'text-zinc-500 hover:bg-zinc-50'}`}>
                 {c.label}
               </Link>
             ))}

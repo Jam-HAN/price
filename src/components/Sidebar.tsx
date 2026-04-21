@@ -1,19 +1,19 @@
 import Link from 'next/link';
 
 const NAV = [
-  { href: '/dashboard', label: '대시보드', phase: '' },
-  { href: '/uploads', label: '단가표 업로드', phase: '' },
-  { type: 'section', label: '데이터' },
-  { href: '/subsidies', label: '공통지원금 (통신사)', phase: '' },
-  { href: '/rebates', label: '리베이트 (거래처)', phase: '' },
-  { href: '/matrix', label: 'Net가 매트릭스', phase: '' },
-  { href: '/margins', label: '마진 설정', phase: '' },
-  { href: '/publish', label: '고객용 단가표', phase: '' },
+  { href: '/dashboard', label: '홈', phase: '' },
+  { href: '/uploads', label: '업로드', phase: '' },
+  { type: 'section', label: '가격' },
+  { href: '/subsidies', label: '공통지원금', phase: '' },
+  { href: '/rebates', label: '리베이트', phase: '' },
+  { href: '/matrix', label: 'Net가', phase: '' },
+  { href: '/margins', label: '마진', phase: '' },
+  { href: '/publish', label: '고객용', phase: '' },
   { type: 'section', label: '마스터' },
-  { href: '/vendors', label: '거래처', phase: '' },
-  { href: '/plans', label: '요금제 구간', phase: '' },
   { href: '/devices', label: '모델', phase: '' },
-  { href: '/aliases', label: '거래처 코드 매핑', phase: '' },
+  { href: '/vendors', label: '거래처', phase: '' },
+  { href: '/plans', label: '요금제', phase: '' },
+  { href: '/aliases', label: '코드 매핑', phase: '' },
 ] as const;
 
 export function Sidebar() {

@@ -47,16 +47,13 @@ export default async function RebatesPage({ searchParams }: { searchParams: Sear
   return (
     <div className="space-y-5">
       <header className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">리베이트 (거래처별)</h1>
-          <p className="mt-1 text-sm text-zinc-500">거래처별 최신 단가표의 리베이트. 단위: 만원 (15.5 = 15만5천원)</p>
-        </div>
-        <div className="flex items-center gap-1 rounded-lg border border-zinc-200 bg-white p-1 text-sm">
+        <h1 className="text-2xl font-bold tracking-tight">리베이트</h1>
+        <div className="flex items-center gap-1 rounded-full border border-zinc-200 bg-white p-1 text-xs">
           {CARRIERS.map((c) => (
             <Link
               key={c}
               href={`/rebates?carrier=${encodeURIComponent(c)}`}
-              className={`rounded px-3 py-1.5 ${c === carrier ? 'bg-zinc-900 text-white' : 'text-zinc-600 hover:bg-zinc-100'}`}
+              className={`rounded-full px-4 py-1 ${c === carrier ? 'bg-zinc-900 text-white' : 'text-zinc-500 hover:bg-zinc-50'}`}
             >
               {c}
             </Link>

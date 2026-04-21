@@ -19,11 +19,7 @@ export default async function MarginsPage() {
   return (
     <div className="space-y-5">
       <header>
-        <h1 className="text-2xl font-bold tracking-tight">마진 설정</h1>
-        <p className="mt-1 text-sm text-zinc-500">
-          고객가 = Net가 + 마진. 우선순위: <span className="font-semibold">디바이스 &gt; 시리즈 &gt; 전역</span>.
-          단위: 원 (예: 100000 = 10만원 마진).
-        </p>
+        <h1 className="text-2xl font-bold tracking-tight">마진</h1>
       </header>
 
       <MarginManager

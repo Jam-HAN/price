@@ -31,16 +31,13 @@ export default async function SubsidiesPage({ searchParams }: { searchParams: Se
   return (
     <div className="space-y-5">
       <header className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">공통지원금 (통신사별)</h1>
-          <p className="mt-1 text-sm text-zinc-500">통신사 × 모델 × 요금제 구간 단위. 셀 클릭하여 편집 (단위: 만원 · 예: 50.0 = 50만원)</p>
-        </div>
-        <div className="flex items-center gap-1 rounded-lg border border-zinc-200 bg-white p-1 text-sm">
+        <h1 className="text-2xl font-bold tracking-tight">공통지원금</h1>
+        <div className="flex items-center gap-1 rounded-full border border-zinc-200 bg-white p-1 text-xs">
           {CARRIERS.map((c) => (
             <Link
               key={c}
               href={`/subsidies?carrier=${encodeURIComponent(c)}`}
-              className={`rounded px-3 py-1.5 ${c === carrier ? 'bg-zinc-900 text-white' : 'text-zinc-600 hover:bg-zinc-100'}`}
+              className={`rounded-full px-4 py-1 ${c === carrier ? 'bg-zinc-900 text-white' : 'text-zinc-500 hover:bg-zinc-50'}`}
             >
               {c}
             </Link>
