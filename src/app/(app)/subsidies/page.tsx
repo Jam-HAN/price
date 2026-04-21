@@ -15,7 +15,7 @@ export default async function SubsidiesPage({ searchParams }: { searchParams: Se
   const sb = getSupabaseAdmin();
 
   const [{ data: devices }, { data: tiers }, { data: subsidies }] = await Promise.all([
-    sb.from('price_devices').select('id, model_code, nickname, manufacturer, series, retail_price_krw, display_order, active').eq('active', true),
+    sb.from('price_devices').select('id, model_code, nickname, manufacturer, series, storage, retail_price_krw, display_order, active').eq('active', true),
     sb.from('price_plan_tiers').select('id, code, label, display_order').eq('carrier', carrier).eq('active', true).order('display_order'),
     sb.from('price_carrier_subsidies').select('id, device_id, plan_tier_id, subsidy_krw, updated_at, source_vendor_id').eq('carrier', carrier),
   ]);
