@@ -20,7 +20,7 @@ export default async function DashboardPage() {
   return (
     <div className="space-y-8">
       <header>
-        <h1 className="page-title">대시보드</h1>
+        <h1 className="text-2xl font-bold tracking-tight">대시보드</h1>
         <p className="mt-1 text-sm text-zinc-500">오늘({today}) 단가표 업로드 현황</p>
       </header>
 

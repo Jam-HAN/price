@@ -31,7 +31,7 @@ export default async function SubsidiesPage({ searchParams }: { searchParams: Se
   return (
     <div className="space-y-5">
       <header className="flex items-center justify-between">
-        <h1 className="page-title">공통지원금</h1>
+        <h1 className="text-2xl font-bold tracking-tight">공통지원금</h1>
         <div className="flex items-center gap-1 rounded-full border border-zinc-200 bg-white p-1 text-xs">
           {CARRIERS.map((c) => (
             <Link

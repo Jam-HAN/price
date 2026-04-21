@@ -15,7 +15,7 @@ export default async function VendorsPage() {
     <div className="space-y-5">
       <header className="flex items-end justify-between">
         <div>
-          <h1 className="page-title">거래처</h1>
+          <h1 className="text-2xl font-bold tracking-tight">거래처</h1>
           <p className="mt-1 text-sm text-zinc-500">통신사별 거래처 관리 (총 {(vendors ?? []).length}곳)</p>
         </div>
       </header>

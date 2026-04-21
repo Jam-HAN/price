@@ -19,7 +19,7 @@ export default async function PlansPage() {
   return (
     <div className="space-y-5">
       <header>
-        <h1 className="page-title">요금제 구간</h1>
+        <h1 className="text-2xl font-bold tracking-tight">요금제 구간</h1>
         <p className="mt-1 text-sm text-zinc-500">
           통신사별 단가표 컬럼 구간 마스터. 거래처 표기가 달라도 여기에 통일 저장.
         </p>

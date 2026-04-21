@@ -17,7 +17,7 @@ export default async function AliasesPage() {
   return (
     <div className="space-y-5">
       <header>
-        <h1 className="page-title">거래처 코드 매핑</h1>
+        <h1 className="text-2xl font-bold tracking-tight">거래처 코드 매핑</h1>
         <p className="mt-1 text-sm text-zinc-500">
           거래처마다 쓰는 모델 코드(예: SM-S942N_512G / UIP17-256)를 내부 모델에 매핑. 단가표 파싱 시 자동 활용.
         </p>

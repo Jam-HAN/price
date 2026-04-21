@@ -1,13 +1,5 @@
 import type { Metadata } from 'next';
-import { Fraunces } from 'next/font/google';
 import './globals.css';
-
-const serif = Fraunces({
-  subsets: ['latin'],
-  weight: ['400', '500', '600'],
-  variable: '--font-serif',
-  display: 'swap',
-});
 
 export const metadata: Metadata = {
   title: '대박통신 · 단가',
@@ -16,8 +8,8 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="ko" className={`h-full antialiased ${serif.variable}`} style={{ colorScheme: 'light' }}>
-      <body className="min-h-full">{children}</body>
+    <html lang="ko" className="h-full antialiased" style={{ colorScheme: 'light' }}>
+      <body className="min-h-full bg-zinc-50 text-zinc-900">{children}</body>
     </html>
   );
 }

@@ -20,7 +20,7 @@ export default async function DevicesPage({ searchParams }: { searchParams: Sear
   return (
     <div className="space-y-5">
       <header className="flex items-start justify-between">
-        <h1 className="page-title">모델</h1>
+        <h1 className="text-2xl font-bold tracking-tight">모델</h1>
         <div className="flex items-center gap-1 rounded-full border border-zinc-200 bg-white p-1 text-xs">
           <Link
             href="/devices?mode=curate"
