@@ -33,8 +33,8 @@ export default async function PublishPage({ searchParams }: { searchParams: Sear
   const tierLGU = sp.tierLGU ?? byCarrier.get('LGU+')?.[0]?.code ?? 'G115';
 
   const { data: rows } = await sb
-    .from('price_latest_net')
-    .select('vendor_id, vendor_name, carrier, device_id, device_name, device_code, device_series, retail_price_krw, plan_tier_code, contract_type, activation_type, net_price')
+    .from('price_customer_view')
+    .select('vendor_id, vendor_name, carrier, device_id, device_name, device_code, device_series, retail_price_krw, plan_tier_code, contract_type, activation_type, net_price, margin_krw, customer_price')
     .in('carrier', ['SKT', 'KT', 'LGU+'])
     .eq('contract_type', contract)
     .in('activation_type', ['mnp', 'change'])
@@ -75,8 +75,10 @@ export default async function PublishPage({ searchParams }: { searchParams: Sear
     const d = agg.get(r.device_id)!;
     const carrierKey = r.carrier === 'SKT' ? d.skt : r.carrier === 'KT' ? d.kt : d.lgu;
     const actKey = r.activation_type as 'mnp' | 'change';
+    // 고객가 = Net + 마진. 최저가(최저 Net) 기준으로 표시.
+    const price = r.customer_price ?? r.net_price;
     const cur = carrierKey[actKey];
-    if (cur == null || r.net_price < cur) carrierKey[actKey] = r.net_price;
+    if (cur == null || price < cur) carrierKey[actKey] = price;
   }
   const devices = Array.from(agg.values());
 
@@ -95,9 +97,9 @@ export default async function PublishPage({ searchParams }: { searchParams: Sear
   return (
     <div className="space-y-4">
       <header>
-        <h1 className="text-2xl font-bold tracking-tight">고객용 단가표 (Net가)</h1>
+        <h1 className="text-2xl font-bold tracking-tight">고객용 단가표</h1>
         <p className="mt-1 text-sm text-zinc-500">
-          같은 통신사 2곳 중 더 싼 Net가 자동 선택 · 만원 단위 · 마진 0 기준
+          같은 통신사 2곳 중 더 싼 고객가(Net + 마진) 자동 선택 · 만원 단위
         </p>
       </header>
 
