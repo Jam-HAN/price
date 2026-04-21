@@ -4,14 +4,14 @@ import { getSupabaseAdmin } from '@/lib/supabase';
 import { signedUrl } from '@/lib/storage';
 import type { SheetExtraction } from '@/lib/vision-schema';
 import { formatKrw } from '@/lib/fmt';
-import { confirmSheet, deleteSheet, updateParsed, autoRegisterMissingDevices } from './actions';
+import { deleteSheet, updateParsed, autoRegisterMissingDevices } from './actions';
 import { runAllChecks, dedupeFlagsByCell, flagKey } from '@/lib/consistency';
 import { FullReparseButton } from './FullReparseButton';
 import { EditableModelsTable } from './EditableModelsTable';
 
 export const dynamic = 'force-dynamic';
 
-type SearchParams = Promise<{ confirmed?: string; auto_registered?: string }>;
+type SearchParams = Promise<{ auto_registered?: string }>;
 
 export default async function SheetReviewPage({
   params,
@@ -21,7 +21,7 @@ export default async function SheetReviewPage({
   searchParams: SearchParams;
 }) {
   const { id } = await params;
-  const { confirmed, auto_registered } = await searchParams;
+  const { auto_registered } = await searchParams;
   const sb = getSupabaseAdmin();
 
   const { data: sheet } = await sb
@@ -124,11 +124,6 @@ export default async function SheetReviewPage({
         </form>
       </header>
 
-      {confirmed ? (
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-          ✓ 확정 완료. Net가 매트릭스에 반영됩니다.
-        </div>
-      ) : null}
       {auto_registered ? (
         <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
           ✓ 자동 등록 완료: 신규 모델 {auto_registered.split('_')[0]}개, alias 연결 {auto_registered.split('_')[1] ?? 0}건
@@ -232,23 +227,13 @@ export default async function SheetReviewPage({
             </div>
           )}
 
-          {raw && sheet.parse_status !== 'confirmed' ? (
-            <form action={confirmSheet} className="flex items-center gap-3 rounded-xl border border-zinc-200 bg-white p-4">
-              <input type="hidden" name="sheet_id" value={sheet.id} />
-              <div className="text-sm text-zinc-600">
-                {redCount > 0 ? (
-                  <span className="font-semibold text-red-700">빨강 {redCount}개 수정 후 확정 가능</span>
-                ) : (
-                  <>검수 끝났으면 확정. 매핑 누락 행은 스킵됩니다.</>
-                )}
-              </div>
-              <button
-                disabled={redCount > 0}
-                className="ml-auto rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-zinc-300"
-              >
-                확정
-              </button>
-            </form>
+          {raw ? (
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
+              ✓ 저장 완료 — Net가 매트릭스/단가표에 이미 반영됐습니다. 셀을 수정하면 즉시 반영됩니다.
+              {redCount > 0 ? (
+                <span className="ml-2 font-semibold text-red-700">(빨강 {redCount}개 수정 권장)</span>
+              ) : null}
+            </div>
           ) : null}
         </section>
       </div>

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { downloadSheet } from '@/lib/storage';
 import { parseSheetImage, type Carrier, VISION_MODEL_CLAUDE, VISION_MODEL_GEMINI, VISION_MODEL_GPT5 } from '@/lib/vision-parse';
+import { syncSheetToNormalized } from '@/lib/sync-sheet';
 
 export const maxDuration = 300;
 
@@ -43,10 +44,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       })
       .eq('id', id);
 
+    const syncResult = await syncSheetToNormalized(id);
+
     return NextResponse.json({
       ok: true,
       model: selectedModel,
       parsed_models: parsed.models.length,
+      synced: syncResult,
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);

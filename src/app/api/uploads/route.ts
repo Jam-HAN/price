@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { uploadSheetImage, downloadSheet } from '@/lib/storage';
 import { parseSheetImage, type Carrier } from '@/lib/vision-parse';
+import { syncSheetToNormalized } from '@/lib/sync-sheet';
 
 export const maxDuration = 300;
 
@@ -110,7 +111,16 @@ async function handle(req: Request) {
         parsed_at: new Date().toISOString(),
       })
       .eq('id', sheetId);
-    return NextResponse.json({ ok: true, sheet_id: sheetId, parsed_models: parsed.models.length });
+
+    // 자동 동기화: 확정 단계 없이 곧바로 quotes/subsidies에 반영
+    const syncResult = await syncSheetToNormalized(sheetId);
+
+    return NextResponse.json({
+      ok: true,
+      sheet_id: sheetId,
+      parsed_models: parsed.models.length,
+      synced: syncResult,
+    });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     await sb
