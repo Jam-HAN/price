@@ -7,6 +7,7 @@ import { formatKrw } from '@/lib/fmt';
 import { confirmSheet, deleteSheet, updateParsed, autoRegisterMissingDevices } from './actions';
 import { detectSuspiciousModels } from '@/lib/quality';
 import { ReparseButton } from './ReparseButton';
+import { FullReparseButton } from './FullReparseButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -101,7 +102,15 @@ export default async function SheetReviewPage({
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)]">
         <section className="rounded-xl border border-zinc-200 bg-white p-4">
-          <h2 className="mb-3 text-sm font-semibold">원본 이미지</h2>
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold">원본 이미지</h2>
+            {sheet.image_url ? (
+              <div className="flex items-center gap-2">
+                <FullReparseButton sheetId={sheet.id} model="gemini" label="Gemini 3.1 Pro 전체 재파싱" color="emerald" />
+                <FullReparseButton sheetId={sheet.id} model="claude" label="Claude Sonnet 전체 재파싱" color="sky" />
+              </div>
+            ) : null}
+          </div>
           {imageUrl ? (
             <a href={imageUrl} target="_blank" rel="noopener">
               <img src={imageUrl} alt="단가표 원본" className="max-h-[700px] w-full rounded border border-zinc-200 object-contain" />

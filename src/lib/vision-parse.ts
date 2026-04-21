@@ -1,4 +1,4 @@
-import { visionExtract, VISION_MODEL_PRIMARY, VISION_MODEL_REPARSE } from './ai';
+import { visionExtract, VISION_MODEL_PRIMARY, VISION_MODEL_REPARSE, VISION_MODEL_CLAUDE, VISION_MODEL_GEMINI } from './ai';
 import { SheetExtraction, type ParsedModel } from './vision-schema';
 import { PROMPTS } from './vision-prompts';
 import { z } from 'zod';
@@ -20,6 +20,7 @@ export async function parseSheetImage(params: {
   imageBytes: Uint8Array | Buffer;
   carrier: Carrier;
   vendorName: string;
+  model?: string;
 }): Promise<SheetExtraction> {
   const basePrompt = PROMPTS[params.carrier];
   if (!basePrompt) throw new Error(`Unknown carrier: ${params.carrier}`);
@@ -35,10 +36,12 @@ ${ANTI_COPY_RULE}
     prompt,
     schema: SheetExtraction,
     maxTokens: 64000,
-    model: VISION_MODEL_PRIMARY,
+    model: params.model ?? VISION_MODEL_PRIMARY,
   });
   return result;
 }
+
+export { VISION_MODEL_CLAUDE, VISION_MODEL_GEMINI };
 
 const ReparseResponse = z.object({
   models: z.array(
