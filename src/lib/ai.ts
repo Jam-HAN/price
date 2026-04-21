@@ -5,6 +5,7 @@ export const VISION_MODEL_PRIMARY = 'anthropic/claude-sonnet-4.6';
 export const VISION_MODEL_REPARSE = 'anthropic/claude-opus-4.7';
 export const VISION_MODEL_GEMINI = 'google/gemini-3.1-pro-preview';
 export const VISION_MODEL_CLAUDE = 'anthropic/claude-sonnet-4.6';
+export const VISION_MODEL_GPT5 = 'openai/gpt-5';
 export const VISION_MODEL = VISION_MODEL_PRIMARY;
 
 export async function visionExtract<T extends z.ZodTypeAny>(params: {

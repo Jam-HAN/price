@@ -1,4 +1,4 @@
-import { visionExtract, VISION_MODEL_PRIMARY, VISION_MODEL_REPARSE, VISION_MODEL_CLAUDE, VISION_MODEL_GEMINI } from './ai';
+import { visionExtract, VISION_MODEL_PRIMARY, VISION_MODEL_REPARSE, VISION_MODEL_CLAUDE, VISION_MODEL_GEMINI, VISION_MODEL_GPT5 } from './ai';
 import { SheetExtraction, type ParsedModel } from './vision-schema';
 import { PROMPTS } from './vision-prompts';
 import { z } from 'zod';
@@ -41,7 +41,7 @@ ${ANTI_COPY_RULE}
   return result;
 }
 
-export { VISION_MODEL_CLAUDE, VISION_MODEL_GEMINI };
+export { VISION_MODEL_CLAUDE, VISION_MODEL_GEMINI, VISION_MODEL_GPT5 };
 
 const ReparseResponse = z.object({
   models: z.array(

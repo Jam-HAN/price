@@ -1,15 +1,18 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { downloadSheet } from '@/lib/storage';
-import { parseSheetImage, type Carrier, VISION_MODEL_CLAUDE, VISION_MODEL_GEMINI } from '@/lib/vision-parse';
+import { parseSheetImage, type Carrier, VISION_MODEL_CLAUDE, VISION_MODEL_GEMINI, VISION_MODEL_GPT5 } from '@/lib/vision-parse';
 
 export const maxDuration = 300;
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const { model } = (await req.json().catch(() => ({}))) as { model?: 'gemini' | 'claude' };
-    const selectedModel = model === 'claude' ? VISION_MODEL_CLAUDE : VISION_MODEL_GEMINI;
+    const { model } = (await req.json().catch(() => ({}))) as { model?: 'gemini' | 'claude' | 'gpt5' };
+    const selectedModel =
+      model === 'claude' ? VISION_MODEL_CLAUDE :
+      model === 'gpt5' ? VISION_MODEL_GPT5 :
+      VISION_MODEL_GEMINI;
 
     const sb = getSupabaseAdmin();
     const { data: sheet, error } = await sb
