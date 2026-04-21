@@ -28,24 +28,52 @@ export function formatMan(n: number | null | undefined): string {
 }
 
 /**
- * 디바이스 리스트 정렬자 — Samsung 내림차순(출고가 높은 순) → Apple 내림차순 → 기타
+ * 시리즈 정렬 순서 — 최신 시리즈 먼저.
+ * Samsung 섹션(0번대) → Apple 섹션(100번대) → 기타(200번대)
+ * 시리즈 내부는 출고가 내림차순.
+ */
+const SERIES_ORDER: Record<string, number> = {
+  galaxyS26: 0,
+  fold7: 1,
+  flip7: 2,
+  galaxyS25: 3,
+  fold6: 4,
+  flip6: 5,
+  galaxyEtc: 6,
+  // Apple
+  iphone17: 100,
+  iphoneAir: 101,
+  iphone16: 102,
+  iphone15: 103,
+  // 기타
+  tablet: 200,
+  wearable: 201,
+  misc: 299,
+};
+
+function seriesOrder(series: string | null | undefined, nickname: string | null | undefined): number {
+  const s = series ?? '';
+  if (s in SERIES_ORDER) return SERIES_ORDER[s];
+  // series 필드가 비어있을 때 nickname으로 추정
+  const n = (nickname ?? '').toLowerCase();
+  if (n.includes('갤럭시') || n.includes('galaxy') || n.includes('폴드') || n.includes('플립')) return 50;
+  if (n.includes('아이폰') || n.includes('iphone')) return 150;
+  return 250;
+}
+
+/**
+ * 디바이스 리스트 정렬자 — 시리즈 순서(최신 먼저) → 시리즈 내 출고가 내림차순
  */
 export function compareDevicesForList<T extends {
   nickname?: string | null;
   manufacturer?: string | null;
+  series?: string | null;
   retail_price_krw?: number | null;
 }>(a: T, b: T): number {
-  const grp = (d: T): number => {
-    const m = (d.manufacturer ?? '').toLowerCase();
-    const n = (d.nickname ?? '').toLowerCase();
-    if (m.includes('samsung') || n.includes('갤럭시') || n.includes('galaxy')) return 0;
-    if (m.includes('apple') || n.includes('아이폰') || n.includes('iphone')) return 1;
-    return 2;
-  };
-  const ga = grp(a);
-  const gb = grp(b);
-  if (ga !== gb) return ga - gb;
+  const sa = seriesOrder(a.series, a.nickname);
+  const sb = seriesOrder(b.series, b.nickname);
+  if (sa !== sb) return sa - sb;
   const ra = a.retail_price_krw ?? 0;
   const rb = b.retail_price_krw ?? 0;
-  return rb - ra; // 출고가 높은 순
+  return rb - ra;
 }

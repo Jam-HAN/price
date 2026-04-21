@@ -22,6 +22,7 @@ type NetRow = {
   device_name: string;
   device_code: string;
   device_order: number;
+  device_series: string | null;
   retail_price_krw: number;
   plan_tier_code: string;
   tier_order: number;
@@ -31,14 +32,6 @@ type NetRow = {
   net_price: number;
 };
 
-// 매트릭스 행을 Samsung 내림차순 → Apple 내림차순 순서로 정렬하기 위한 매뉴팩처러 추론
-function inferManufacturer(nickname: string): string | null {
-  const n = nickname.toLowerCase();
-  if (n.includes('갤럭시') || n.includes('galaxy')) return 'Samsung';
-  if (n.includes('아이폰') || n.includes('iphone')) return 'Apple';
-  return null;
-}
-
 export default async function MatrixPage({ searchParams }: { searchParams: SearchParams }) {
   const sp = await searchParams;
   const carrier = sp.carrier ?? 'SKT';
@@ -47,7 +40,7 @@ export default async function MatrixPage({ searchParams }: { searchParams: Searc
 
   const [{ data: tiers }, { data: rows }] = await Promise.all([
     sb.from('price_plan_tiers').select('id, code, display_order').eq('carrier', carrier).eq('active', true).order('display_order'),
-    sb.from('price_latest_net').select('device_id, device_name, device_code, device_order, retail_price_krw, plan_tier_code, tier_order, vendor_name, contract_type, activation_type, net_price')
+    sb.from('price_latest_net').select('device_id, device_name, device_code, device_order, device_series, retail_price_krw, plan_tier_code, tier_order, vendor_name, contract_type, activation_type, net_price')
       .eq('carrier', carrier).eq('contract_type', contract),
   ]);
 
@@ -55,12 +48,13 @@ export default async function MatrixPage({ searchParams }: { searchParams: Searc
 
   // 디바이스 × tier × activation 조합별 최저 Net 뽑기
   const cellBest = new Map<string, { price: number; vendor: string }>();
-  const deviceMap = new Map<string, { name: string; code: string; order: number; retail: number }>();
+  const deviceMap = new Map<string, { name: string; code: string; order: number; retail: number; series: string | null }>();
 
   for (const r of (rows ?? []) as NetRow[]) {
     if (!deviceMap.has(r.device_id)) {
       deviceMap.set(r.device_id, {
-        name: r.device_name, code: r.device_code, order: r.device_order, retail: r.retail_price_krw,
+        name: r.device_name, code: r.device_code, order: r.device_order,
+        retail: r.retail_price_krw, series: r.device_series,
       });
     }
     const key = `${r.device_id}|${r.plan_tier_code}|${r.activation_type}`;
@@ -74,7 +68,6 @@ export default async function MatrixPage({ searchParams }: { searchParams: Searc
     .map(([id, d]) => ({
       id,
       ...d,
-      manufacturer: inferManufacturer(d.name),
       retail_price_krw: d.retail,
       nickname: d.name,
     }))

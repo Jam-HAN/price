@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import type { SheetExtraction } from '@/lib/vision-schema';
 import type { CellFlag, CellField } from '@/lib/consistency';
-import { formatMan } from '@/lib/fmt';
+import { formatMan, compareDevicesForList } from '@/lib/fmt';
 import { updateCellAction } from './cell-actions';
 
 type FlagMap = Record<string, CellFlag>; // key = model_code_raw|tier|field
@@ -21,18 +21,8 @@ export function EditableModelsTable({
   const tierCodes = Array.from(
     new Set((raw.models ?? []).flatMap((m) => (m.tiers ?? []).map((t) => t.plan_tier_code))),
   );
-  const sortedModels = [...(raw.models ?? [])].sort((a, b) => {
-    const grp = (nick: string) => {
-      const n = nick.toLowerCase();
-      if (n.includes('갤럭시') || n.includes('galaxy')) return 0;
-      if (n.includes('아이폰') || n.includes('iphone')) return 1;
-      return 2;
-    };
-    const ga = grp(a.nickname);
-    const gb = grp(b.nickname);
-    if (ga !== gb) return ga - gb;
-    return (b.retail_price_krw ?? 0) - (a.retail_price_krw ?? 0);
-  });
+  // raw_ocr_json에 series 필드 없음 — nickname 기반으로 비교 함수가 추정
+  const sortedModels = [...(raw.models ?? [])].sort(compareDevicesForList);
 
   return (
     <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white">
