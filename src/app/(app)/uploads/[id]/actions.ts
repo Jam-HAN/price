@@ -111,12 +111,21 @@ export async function confirmSheet(formData: FormData) {
     if (error) throw new Error(`policies insert: ${error.message}`);
   }
 
+  // 공시지원금 단위 자동 보정: (sheet, tier) 묶음의 avg < 100,000 AND tier.monthly_fee >= 60,000 → ×10
+  // Claude Vision이 "천원 단위" 표기를 놓쳐서 ×1,000 대신 ×10,000으로 변환하는 경우 대응.
+  const { data: corrected } = await sb.rpc('price_autocorrect_subsidy_units', { p_sheet_id: sheetId });
+  const correctedCount = typeof corrected === 'number' ? corrected : 0;
+
+  const noteParts: string[] = [];
+  if (unmapped.length) noteParts.push(`매핑 누락 ${unmapped.length}건:\n${unmapped.slice(0, 20).join('\n')}`);
+  if (correctedCount > 0) noteParts.push(`공시지원금 단위 자동 보정: ${correctedCount}건 ×10 적용`);
+
   await sb
     .from('price_vendor_quote_sheets')
     .update({
       parse_status: 'confirmed',
       confirmed_at: new Date().toISOString(),
-      notes: unmapped.length ? `매핑 누락: ${unmapped.length}건\n${unmapped.slice(0, 20).join('\n')}` : null,
+      notes: noteParts.length ? noteParts.join('\n\n') : null,
     })
     .eq('id', sheetId);
 
