@@ -98,7 +98,7 @@ export default async function PublishPage({ searchParams }: { searchParams: Sear
   const lgu = tierLabel('LGU+', tierLGU);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <header>
         <h1 className="text-2xl font-bold tracking-tight">고객용</h1>
       </header>

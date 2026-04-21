@@ -109,7 +109,7 @@ export default async function SheetReviewPage({
   for (const [k, v] of flagMap.entries()) flagMapObj[k] = v;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <header className="flex items-start justify-between">
         <div>
           <div className="flex items-center gap-2 text-sm text-zinc-500">

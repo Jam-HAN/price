@@ -42,11 +42,10 @@ const PRESETS: { label: string; seriesKeys: string[] }[] = [
 
 export function DeviceCurator({ devices: initialDevices }: { devices: Device[] }) {
   const router = useRouter();
-  const [pending, start] = useTransition();
+  const [, start] = useTransition();
   const [query, setQuery] = useState('');
   const [showInactive, setShowInactive] = useState(true);
 
-  // Optimistic state — UI는 즉시 반영, 서버 저장은 백그라운드
   const [optimisticDevices, applyOptimistic] = useOptimistic(
     initialDevices,
     (current: Device[], update: { ids: Set<string>; active: boolean }) =>
@@ -71,11 +70,8 @@ export function DeviceCurator({ devices: initialDevices }: { devices: Device[] }
   function toggle(id: string, next: boolean) {
     start(async () => {
       applyOptimistic({ ids: new Set([id]), active: next });
-      try {
-        await toggleDeviceActive({ id, active: next });
-      } catch {
-        router.refresh();
-      }
+      try { await toggleDeviceActive({ id, active: next }); }
+      catch { router.refresh(); }
     });
   }
 
@@ -83,11 +79,8 @@ export function DeviceCurator({ devices: initialDevices }: { devices: Device[] }
     if (ids.length === 0) return;
     start(async () => {
       applyOptimistic({ ids: new Set(ids), active });
-      try {
-        await bulkSetActive({ ids, active });
-      } catch {
-        router.refresh();
-      }
+      try { await bulkSetActive({ ids, active }); }
+      catch { router.refresh(); }
     });
   }
 
@@ -105,9 +98,7 @@ export function DeviceCurator({ devices: initialDevices }: { devices: Device[] }
           bulkSetActive({ ids: activateIds, active: true }),
           bulkSetActive({ ids: deactivateIds, active: false }),
         ]);
-      } catch {
-        router.refresh();
-      }
+      } catch { router.refresh(); }
     });
   }
 
@@ -123,80 +114,61 @@ export function DeviceCurator({ devices: initialDevices }: { devices: Device[] }
 
   return (
     <div className="space-y-4">
-      {/* 간단 헤더 */}
-      <div className="flex items-center justify-between">
-        <div className="text-lg font-semibold">
-          판매 중 <span className="text-2xl text-emerald-600">{activeCount}</span>
-          <span className="text-sm text-zinc-400"> / {optimisticDevices.length}</span>
+      {/* 상단 바: 카운트 + 검색 + 전역 토글 */}
+      <div className="flex flex-wrap items-center gap-3 rounded-lg border border-zinc-200 bg-white px-4 py-3">
+        <div className="text-sm">
+          판매 중 <span className="text-xl font-bold text-emerald-600">{activeCount}</span>
+          <span className="ml-1 text-zinc-400">/ {optimisticDevices.length}</span>
         </div>
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="검색"
-          className="w-56 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-sm outline-none focus:border-zinc-400"
+          className="ml-auto w-52 rounded-lg border border-zinc-200 px-3 py-1.5 text-sm outline-none focus:border-zinc-400"
         />
+        <button onClick={() => applyAll(true)}
+          className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs text-emerald-700 hover:bg-emerald-100">
+          전체 ON
+        </button>
+        <button onClick={() => applyAll(false)}
+          className="rounded-full border border-zinc-200 bg-white px-3 py-1 text-xs text-zinc-600 hover:bg-zinc-50">
+          전체 OFF
+        </button>
+        <label className="flex items-center gap-1 text-xs text-zinc-500">
+          <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} />
+          비활성 표시
+        </label>
       </div>
 
       {/* 프리셋 */}
       <div className="flex flex-wrap gap-2">
         {PRESETS.map((p) => (
-          <button
-            key={p.label}
-            disabled={pending}
-            onClick={() => applyPreset(p.seriesKeys)}
-            className="rounded-full border border-zinc-200 bg-white px-4 py-1.5 text-sm hover:bg-zinc-50 disabled:opacity-50"
-          >
+          <button key={p.label} onClick={() => applyPreset(p.seriesKeys)}
+            className="rounded-full border border-zinc-200 bg-white px-4 py-1.5 text-sm hover:bg-zinc-50">
             {p.label}
           </button>
         ))}
-        <div className="ml-auto flex gap-2">
-          <button
-            disabled={pending}
-            onClick={() => applyAll(true)}
-            className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
-          >
-            전체 ON
-          </button>
-          <button
-            disabled={pending}
-            onClick={() => applyAll(false)}
-            className="rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-xs text-zinc-600 hover:bg-zinc-50 disabled:opacity-50"
-          >
-            전체 OFF
-          </button>
-          <label className="flex items-center gap-1.5 text-xs text-zinc-500">
-            <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} />
-            비활성 표시
-          </label>
-        </div>
       </div>
 
-      {/* 시리즈별 카드 그리드 */}
+      {/* 시리즈별 리스트 */}
       {grouped.map((g) => {
         const activeInGroup = g.items.filter((i) => i.active).length;
         const allActive = activeInGroup === g.items.length;
         return (
-          <section key={g.key} className="space-y-2">
-            <div className="flex items-center gap-3">
-              <h2 className="text-sm font-semibold text-zinc-900">{g.label}</h2>
+          <section key={g.key} className="overflow-hidden rounded-lg border border-zinc-200 bg-white">
+            <div className="flex items-center gap-3 border-b border-zinc-100 bg-zinc-50 px-4 py-2">
+              <h2 className="text-sm font-semibold">{g.label}</h2>
               <span className="text-xs text-zinc-400">{activeInGroup}/{g.items.length}</span>
-              <button
-                disabled={pending}
-                onClick={() => toggleGroup(g.series)}
-                className="ml-auto text-xs text-zinc-500 hover:text-zinc-900 disabled:opacity-50"
-              >
+              <button onClick={() => toggleGroup(g.series)}
+                className="ml-auto text-xs text-zinc-500 hover:text-zinc-900">
                 {allActive ? '전부 끄기' : '전부 켜기'}
               </button>
             </div>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+            <ul className="divide-y divide-zinc-100">
               {g.items.map((d) => (
-                <DeviceCard
-                  key={d.id}
-                  device={d}
-                  onToggle={() => toggle(d.id, !d.active)}
-                />
+                <DeviceRow key={d.id} device={d} onToggle={() => toggle(d.id, !d.active)} />
               ))}
-            </div>
+            </ul>
           </section>
         );
       })}
@@ -204,32 +176,26 @@ export function DeviceCurator({ devices: initialDevices }: { devices: Device[] }
   );
 }
 
-function DeviceCard({ device, onToggle }: {
-  device: Device;
-  onToggle: () => void;
-}) {
-  const { nickname, model_code, retail_price_krw, active } = device;
-  const base = active
-    ? 'border-zinc-900 bg-zinc-900 text-white'
-    : 'border-zinc-200 bg-white text-zinc-400 hover:border-zinc-400';
+function DeviceRow({ device, onToggle }: { device: Device; onToggle: () => void }) {
+  const { nickname, model_code, retail_price_krw, storage, active } = device;
   return (
-    <button
-      type="button"
-      onClick={onToggle}
-      className={`relative rounded-xl border-2 px-3 py-2.5 text-left transition ${base}`}
-    >
-      <div className={`text-sm font-medium leading-tight ${active ? '' : 'text-zinc-600'}`}>
-        {nickname}
-      </div>
-      <div className={`mt-1 text-[11px] font-mono ${active ? 'text-zinc-300' : 'text-zinc-400'}`}>
-        {model_code}
-      </div>
-      <div className={`mt-1 text-sm font-mono ${active ? 'text-white' : 'text-zinc-500'}`}>
-        {formatMan(retail_price_krw)}만
-      </div>
-      {active ? (
-        <div className="absolute right-2 top-2 text-xs">✓</div>
-      ) : null}
-    </button>
+    <li>
+      <button
+        type="button"
+        onClick={onToggle}
+        className={`flex w-full items-center gap-3 px-4 py-2 text-left text-sm transition hover:bg-zinc-50 ${active ? '' : 'opacity-40'}`}
+      >
+        <input
+          type="checkbox"
+          checked={active}
+          readOnly
+          className="h-4 w-4 accent-emerald-600"
+        />
+        <span className="flex-1 font-medium">{nickname}</span>
+        <span className="w-40 font-mono text-[11px] text-zinc-400">{model_code}</span>
+        <span className="w-14 text-xs text-zinc-500">{storage ?? ''}</span>
+        <span className="w-16 text-right font-mono text-xs text-zinc-600">{formatMan(retail_price_krw)}만</span>
+      </button>
+    </li>
   );
 }

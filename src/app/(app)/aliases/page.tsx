@@ -15,7 +15,7 @@ export default async function AliasesPage() {
   ]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <header>
         <h1 className="text-2xl font-bold tracking-tight">거래처 코드 매핑</h1>
         <p className="mt-1 text-sm text-zinc-500">

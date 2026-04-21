@@ -16,7 +16,7 @@ export default async function UploadsPage() {
   ]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <header>
         <h1 className="text-2xl font-bold tracking-tight">업로드</h1>
       </header>

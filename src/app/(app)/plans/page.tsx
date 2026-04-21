@@ -17,7 +17,7 @@ export default async function PlansPage() {
   for (const t of tiers ?? []) byCarrier.get(t.carrier)?.push(t as never);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <header>
         <h1 className="text-2xl font-bold tracking-tight">요금제 구간</h1>
         <p className="mt-1 text-sm text-zinc-500">

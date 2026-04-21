@@ -12,7 +12,7 @@ export default async function VendorsPage() {
     .order('display_order');
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <header className="flex items-end justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">거래처</h1>
