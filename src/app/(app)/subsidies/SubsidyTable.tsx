@@ -22,42 +22,68 @@ export function SubsidyTable({
   for (const s of subsidies) map.set(`${s.device_id}|${s.plan_tier_id}`, s.subsidy_krw);
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white">
-      <table className="w-full text-xs">
-        <thead className="bg-zinc-50 text-zinc-500">
-          <tr>
-            <th className="sticky left-0 bg-zinc-50 px-3 py-2 text-left">모델</th>
-            <th className="px-2 py-2 text-right">출고가</th>
-            {tiers.map((t) => (
-              <th key={t.id} className="px-2 py-2 text-center" title={t.label}>
-                {t.code}
+    <div className="card overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="w-full text-[12px]">
+          <thead>
+            <tr>
+              <th
+                className="sticky left-0 px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider"
+                style={{ background: '#fafbff', color: 'var(--ink-3)', borderBottom: '1px solid var(--line)' }}
+              >
+                모델
               </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {devices.map((d) => (
-            <tr key={d.id} className="border-t border-zinc-100">
-              <td className="sticky left-0 bg-white px-3 py-1.5 font-medium">
-                <div>{d.nickname}</div>
-                <div className="font-mono text-[10px] text-zinc-400">{d.model_code}</div>
-              </td>
-              <td className="px-2 py-1.5 text-right font-mono text-zinc-500">
-                {formatMan(d.retail_price_krw)}
-              </td>
+              <th
+                className="px-3 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider"
+                style={{ background: '#fafbff', color: 'var(--ink-3)', borderBottom: '1px solid var(--line)' }}
+              >
+                출고가
+              </th>
               {tiers.map((t) => (
-                <SubsidyCell
+                <th
                   key={t.id}
-                  carrier={carrier}
-                  deviceId={d.id}
-                  tierId={t.id}
-                  value={map.get(`${d.id}|${t.id}`) ?? null}
-                />
+                  className="px-2 py-2.5 text-center text-[11px] font-bold uppercase tracking-wider"
+                  style={{ background: '#fafbff', color: 'var(--ink-3)', borderBottom: '1px solid var(--line)' }}
+                  title={t.label}
+                >
+                  {t.code}
+                </th>
               ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {devices.length === 0 ? (
+              <tr>
+                <td colSpan={tiers.length + 2} className="py-16 text-center" style={{ color: 'var(--ink-3)' }}>
+                  활성 모델이 없습니다.
+                </td>
+              </tr>
+            ) : null}
+            {devices.map((d) => (
+              <tr key={d.id} style={{ borderTop: '1px solid var(--line-2)' }}>
+                <td className="sticky left-0 bg-white px-4 py-2">
+                  <div className="text-[13px] font-semibold">{d.nickname}</div>
+                  <div className="mono text-[10px]" style={{ color: 'var(--ink-3)' }}>
+                    {d.model_code}
+                  </div>
+                </td>
+                <td className="mono px-3 py-2 text-right text-[12px]" style={{ color: 'var(--ink-3)' }}>
+                  {formatMan(d.retail_price_krw)}
+                </td>
+                {tiers.map((t) => (
+                  <SubsidyCell
+                    key={t.id}
+                    carrier={carrier}
+                    deviceId={d.id}
+                    tierId={t.id}
+                    value={map.get(`${d.id}|${t.id}`) ?? null}
+                  />
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { UploadForm } from './UploadForm';
+import { PageHeader, Chip, CarrierPill, type CarrierKey } from '@/components/ui';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,31 +17,40 @@ export default async function UploadsPage() {
   ]);
 
   return (
-    <div className="space-y-5">
-      <header>
-        <h1 className="page-title">업로드</h1>
-      </header>
+    <>
+      <PageHeader crumbs={['대박통신', '업로드']} title="단가표 업로드" />
 
-      <section className="rounded-xl border border-zinc-200 bg-white p-6">
-        <UploadForm vendors={vendors ?? []} />
-      </section>
+      <div className="card mb-4">
+        <div className="card-h">
+          <h3>신규 업로드</h3>
+        </div>
+        <div className="card-b">
+          <UploadForm vendors={vendors ?? []} />
+        </div>
+      </div>
 
-      <section className="overflow-hidden rounded-xl border border-zinc-200 bg-white">
-        <div className="border-b border-zinc-100 bg-zinc-50 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">최근</div>
-        <table className="w-full text-sm">
-          <thead className="bg-zinc-50 text-xs uppercase tracking-wide text-zinc-500">
+      <div className="card">
+        <div className="card-h">
+          <h3>최근 업로드</h3>
+          <span className="text-[11px]" style={{ color: 'var(--ink-3)' }}>
+            최근 30건
+          </span>
+        </div>
+        <table className="t">
+          <thead>
             <tr>
-              <th className="px-4 py-2 text-left">일자</th>
-              <th className="px-4 py-2 text-left">거래처</th>
-              <th className="px-4 py-2 text-left">상태</th>
-              <th className="px-4 py-2 text-left">업로드 시각</th>
-              <th className="px-4 py-2 text-right">액션</th>
+              <th>일자</th>
+              <th>거래처</th>
+              <th>통신사</th>
+              <th>상태</th>
+              <th>업로드</th>
+              <th className="right">액션</th>
             </tr>
           </thead>
           <tbody>
             {(sheets ?? []).length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-zinc-400">
+                <td colSpan={6} className="py-10 text-center" style={{ color: 'var(--ink-3)' }}>
                   업로드 이력이 없습니다.
                 </td>
               </tr>
@@ -48,19 +58,20 @@ export default async function UploadsPage() {
             {(sheets ?? []).map((s) => {
               const vendor = Array.isArray(s.vendor) ? s.vendor[0] : s.vendor;
               return (
-                <tr key={s.id} className="border-t border-zinc-100">
-                  <td className="px-4 py-2">{s.effective_date}</td>
-                  <td className="px-4 py-2">
-                    {vendor?.name} <span className="text-xs text-zinc-500">({vendor?.carrier})</span>
+                <tr key={s.id}>
+                  <td className="mono">{s.effective_date}</td>
+                  <td>
+                    <b>{vendor?.name}</b>
                   </td>
-                  <td className="px-4 py-2">
-                    <StatusBadge status={s.parse_status} />
+                  <td>{vendor ? <CarrierPill id={vendor.carrier as CarrierKey} /> : null}</td>
+                  <td>
+                    <StatusChip status={s.parse_status} />
                   </td>
-                  <td className="px-4 py-2 text-xs text-zinc-500">
-                    {new Date(s.uploaded_at).toLocaleString('ko-KR')}
+                  <td className="text-[12px]" style={{ color: 'var(--ink-3)' }}>
+                    {new Date(s.uploaded_at).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric' })}
                   </td>
-                  <td className="px-4 py-2 text-right">
-                    <Link href={`/uploads/${s.id}`} className="text-xs font-semibold text-zinc-700 hover:text-zinc-900">
+                  <td className="right">
+                    <Link href={`/uploads/${s.id}`} className="btn btn-sm btn-ghost">
                       {s.parse_status === 'confirmed' ? '상세' : '검수 →'}
                     </Link>
                   </td>
@@ -69,19 +80,15 @@ export default async function UploadsPage() {
             })}
           </tbody>
         </table>
-      </section>
-    </div>
+      </div>
+    </>
   );
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const map: Record<string, { label: string; cls: string }> = {
-    pending: { label: '대기', cls: 'bg-zinc-100 text-zinc-600' },
-    parsing: { label: '파싱 중', cls: 'bg-blue-50 text-blue-600' },
-    parsed: { label: '검수 대기', cls: 'bg-amber-50 text-amber-700' },
-    confirmed: { label: '확정', cls: 'bg-emerald-50 text-emerald-700' },
-    error: { label: '오류', cls: 'bg-red-50 text-red-600' },
-  };
-  const v = map[status] ?? { label: status, cls: 'bg-zinc-100 text-zinc-600' };
-  return <span className={`rounded px-2 py-0.5 text-xs font-medium ${v.cls}`}>{v.label}</span>;
+function StatusChip({ status }: { status: string }) {
+  if (status === 'confirmed') return <Chip tone="mint">확정</Chip>;
+  if (status === 'parsed') return <Chip tone="yellow">검수 대기</Chip>;
+  if (status === 'parsing') return <Chip tone="blue">파싱 중</Chip>;
+  if (status === 'error') return <Chip tone="pink">오류</Chip>;
+  return <Chip>대기</Chip>;
 }

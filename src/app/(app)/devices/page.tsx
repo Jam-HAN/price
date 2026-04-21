@@ -1,5 +1,5 @@
-import Link from 'next/link';
 import { getSupabaseAdmin } from '@/lib/supabase';
+import { PageHeader, SegmentedLink } from '@/components/ui';
 import { DeviceCurator } from './DeviceCurator';
 import { DeviceEditList } from './DeviceEditList';
 
@@ -18,32 +18,24 @@ export default async function DevicesPage({ searchParams }: { searchParams: Sear
     .order('nickname');
 
   return (
-    <div className="space-y-5">
-      <header className="flex items-start justify-between">
-        <h1 className="page-title">모델</h1>
-        <div className="pill-tabs">
-          <Link
-            href="/devices?mode=curate"
-            className={`pill-tab ${mode === 'curate' ? 'pill-tab-active' : 'pill-tab-idle'}`}
-          >
-            판매 설정
-          </Link>
-          <Link
-            href="/devices?mode=edit"
-            className={`pill-tab ${mode === 'edit' ? 'pill-tab-active' : 'pill-tab-idle'}`}
-          >
-            편집
-          </Link>
-        </div>
-      </header>
+    <>
+      <PageHeader
+        crumbs={['대박통신', '마스터', '모델']}
+        title="모델"
+        actions={
+          <SegmentedLink
+            value={mode}
+            options={[
+              { v: 'curate' as const, label: '판매 설정' },
+              { v: 'edit' as const, label: '편집' },
+            ]}
+            hrefFor={(m) => `/devices?mode=${m}`}
+          />
+        }
+      />
 
-      {mode === 'curate' ? (
-        <DeviceCurator devices={devices ?? []} />
-      ) : null}
-
-      {mode === 'edit' ? (
-        <DeviceEditList devices={devices ?? []} />
-      ) : null}
-    </div>
+      {mode === 'curate' ? <DeviceCurator devices={devices ?? []} /> : null}
+      {mode === 'edit' ? <DeviceEditList devices={devices ?? []} /> : null}
+    </>
   );
 }

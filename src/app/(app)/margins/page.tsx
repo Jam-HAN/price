@@ -1,5 +1,6 @@
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { compareDevicesForList } from '@/lib/fmt';
+import { PageHeader } from '@/components/ui';
 import { MarginManager } from './MarginManager';
 
 export const dynamic = 'force-dynamic';
@@ -17,16 +18,13 @@ export default async function MarginsPage() {
   const seriesList = Array.from(seriesSet).sort();
 
   return (
-    <div className="space-y-5">
-      <header>
-        <h1 className="page-title">마진</h1>
-      </header>
-
+    <>
+      <PageHeader crumbs={['대박통신', '가격', '마진']} title="마진 설정" />
       <MarginManager
         margins={margins ?? []}
         devices={[...(devices ?? [])].sort(compareDevicesForList)}
         seriesList={seriesList}
       />
-    </div>
+    </>
   );
 }

@@ -1,6 +1,7 @@
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { createVendor, updateVendor, deleteVendor } from './actions';
 import { CARRIERS } from '@/lib/fmt';
+import { PageHeader } from '@/components/ui';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,15 +13,10 @@ export default async function VendorsPage() {
     .order('display_order');
 
   return (
-    <div className="space-y-5">
-      <header className="flex items-end justify-between">
-        <div>
-          <h1 className="page-title">거래처</h1>
-          <p className="mt-1 text-sm text-zinc-500">통신사별 거래처 관리 (총 {(vendors ?? []).length}곳)</p>
-        </div>
-      </header>
+    <>
+      <PageHeader crumbs={['대박통신', '마스터', '거래처']} title="거래처" />
 
-      <section className="rounded-xl border border-zinc-200 bg-white p-4">
+      <section className="card p-4 mb-4">
         <h2 className="mb-3 text-sm font-semibold">신규 추가</h2>
         <form action={createVendor} className="flex flex-wrap items-end gap-2">
           <label className="flex flex-col text-xs text-zinc-600">
@@ -50,7 +46,7 @@ export default async function VendorsPage() {
         </form>
       </section>
 
-      <section className="overflow-hidden rounded-xl border border-zinc-200 bg-white">
+      <section className="card overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-zinc-50 text-xs uppercase tracking-wide text-zinc-500">
             <tr>
@@ -112,6 +108,6 @@ export default async function VendorsPage() {
           </tbody>
         </table>
       </section>
-    </div>
+    </>
   );
 }

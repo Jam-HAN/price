@@ -1,6 +1,7 @@
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { CARRIERS, formatKrw } from '@/lib/fmt';
 import { createTier, updateTier, deleteTier } from './actions';
+import { PageHeader } from '@/components/ui';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,15 +18,10 @@ export default async function PlansPage() {
   for (const t of tiers ?? []) byCarrier.get(t.carrier)?.push(t as never);
 
   return (
-    <div className="space-y-5">
-      <header>
-        <h1 className="page-title">요금제 구간</h1>
-        <p className="mt-1 text-sm text-zinc-500">
-          통신사별 단가표 컬럼 구간 마스터. 거래처 표기가 달라도 여기에 통일 저장.
-        </p>
-      </header>
+    <>
+      <PageHeader crumbs={['대박통신', '마스터', '요금제']} title="요금제 구간" />
 
-      <section className="rounded-xl border border-zinc-200 bg-white p-4">
+      <section className="card p-4 mb-4">
         <h2 className="mb-3 text-sm font-semibold">신규 추가</h2>
         <form action={createTier} className="flex flex-wrap items-end gap-2">
           <label className="flex flex-col text-xs text-zinc-600">
@@ -59,7 +55,7 @@ export default async function PlansPage() {
       {CARRIERS.map((carrier) => {
         const rows = byCarrier.get(carrier) ?? [];
         return (
-          <section key={carrier} className="overflow-hidden rounded-xl border border-zinc-200 bg-white">
+          <section key={carrier} className="card overflow-hidden mb-3">
             <div className="border-b border-zinc-100 bg-zinc-50 px-4 py-2 text-sm font-semibold">
               {carrier} <span className="ml-2 text-xs font-normal text-zinc-500">{rows.length}개 구간</span>
             </div>
@@ -110,6 +106,6 @@ export default async function PlansPage() {
           </section>
         );
       })}
-    </div>
+    </>
   );
 }

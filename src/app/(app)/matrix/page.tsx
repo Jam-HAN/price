@@ -1,6 +1,6 @@
-import Link from 'next/link';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { formatMan, compareDevicesForList } from '@/lib/fmt';
+import { PageHeader, SegmentedLink, type CarrierKey } from '@/components/ui';
 
 export const dynamic = 'force-dynamic';
 
@@ -76,82 +76,131 @@ export default async function MatrixPage({ searchParams }: { searchParams: Searc
     .sort(compareDevicesForList);
 
   return (
-    <div className="space-y-5">
-      <header className="flex items-center justify-between">
-        <h1 className="page-title">Net가</h1>
-        <div className="flex gap-2">
-          <div className="pill-tabs">
-            {CARRIERS.map((c) => (
-              <Link key={c} href={`/matrix?carrier=${c}&contract=${contract}`}
-                className={`pill-tab ${c === carrier ? 'pill-tab-active' : 'pill-tab-idle'}`}>
-                {c}
-              </Link>
-            ))}
+    <>
+      <PageHeader
+        crumbs={['대박통신', '가격', 'Net가']}
+        title="Net가 매트릭스"
+        actions={
+          <div className="flex gap-2">
+            <SegmentedLink
+              value={carrier}
+              options={CARRIERS.map((c) => ({ v: c as CarrierKey, label: c }))}
+              hrefFor={(c) => `/matrix?carrier=${c}&contract=${contract}`}
+            />
+            <SegmentedLink
+              value={contract}
+              options={CONTRACTS.map((c) => ({ v: c.v, label: c.label }))}
+              hrefFor={(c) => `/matrix?carrier=${carrier}&contract=${c}`}
+            />
           </div>
-          <div className="pill-tabs">
-            {CONTRACTS.map((c) => (
-              <Link key={c.v} href={`/matrix?carrier=${carrier}&contract=${c.v}`}
-                className={`pill-tab ${c.v === contract ? 'pill-tab-active' : 'pill-tab-idle'}`}>
-                {c.label}
-              </Link>
-            ))}
-          </div>
-        </div>
-      </header>
+        }
+      />
 
-      <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white">
-        <table className="w-full text-xs">
-          <thead className="bg-zinc-50 text-zinc-500">
-            <tr>
-              <th rowSpan={2} className="sticky left-0 bg-zinc-50 px-3 py-2 text-left">모델</th>
-              <th rowSpan={2} className="px-2 py-2 text-right">출고가</th>
-              {tierCodes.map((code) => (
-                <th key={code} colSpan={ACTIVATIONS.length} className="border-l border-zinc-200 px-2 py-1 text-center">
-                  {code}
+      <div className="card overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-[12px]">
+            <thead>
+              <tr>
+                <th
+                  rowSpan={2}
+                  className="sticky left-0 px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider"
+                  style={{ background: '#fafbff', color: 'var(--ink-3)', borderBottom: '1px solid var(--line)' }}
+                >
+                  모델
                 </th>
-              ))}
-            </tr>
-            <tr>
-              {tierCodes.map((code) =>
-                ACTIVATIONS.map((a) => (
-                  <th key={`${code}-${a.v}`} className={`px-1 py-1 text-[10px] font-normal ${a.v === 'new010' ? 'border-l border-zinc-200' : ''}`}>
-                    {a.label}
+                <th
+                  rowSpan={2}
+                  className="px-3 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider"
+                  style={{ background: '#fafbff', color: 'var(--ink-3)', borderBottom: '1px solid var(--line)' }}
+                >
+                  출고가
+                </th>
+                {tierCodes.map((code) => (
+                  <th
+                    key={code}
+                    colSpan={ACTIVATIONS.length}
+                    className="px-2 py-1.5 text-center text-[11px] font-bold uppercase tracking-wider"
+                    style={{ background: '#fafbff', color: 'var(--ink-3)', borderLeft: '1px solid var(--line)' }}
+                  >
+                    {code}
                   </th>
-                )),
-              )}
-            </tr>
-          </thead>
-          <tbody>
-            {devices.map((d) => (
-              <tr key={d.id} className="border-t border-zinc-100">
-                <td className="sticky left-0 bg-white px-3 py-1.5 font-medium">
-                  <div>{d.name}</div>
-                  <div className="font-mono text-[10px] text-zinc-400">{d.code}</div>
-                </td>
-                <td className="px-2 py-1.5 text-right font-mono text-zinc-500">
-                  {formatMan(d.retail)}
-                </td>
+                ))}
+              </tr>
+              <tr>
                 {tierCodes.map((code) =>
-                  ACTIVATIONS.map((a) => {
-                    const cell = cellBest.get(`${d.id}|${code}|${a.v}`);
-                    const leftBorder = a.v === 'new010' ? 'border-l border-zinc-200' : '';
-                    if (!cell) return (
-                      <td key={`${code}-${a.v}`} className={`px-1 py-1 text-center text-zinc-300 ${leftBorder}`}>—</td>
-                    );
-                    const neg = cell.price < 0;
-                    return (
-                      <td key={`${code}-${a.v}`} title={`거래처: ${cell.vendor}`}
-                        className={`px-1 py-1 text-right font-mono ${neg ? 'text-red-600 font-semibold' : 'text-zinc-900'} ${leftBorder}`}>
-                        {formatMan(cell.price)}
-                      </td>
-                    );
-                  }),
+                  ACTIVATIONS.map((a) => (
+                    <th
+                      key={`${code}-${a.v}`}
+                      className="px-1.5 py-1.5 text-center text-[10px] font-normal"
+                      style={{
+                        background: '#fafbff',
+                        color: 'var(--ink-3)',
+                        borderBottom: '1px solid var(--line)',
+                        borderLeft: a.v === 'new010' ? '1px solid var(--line)' : 'none',
+                      }}
+                    >
+                      {a.label}
+                    </th>
+                  )),
                 )}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {devices.length === 0 ? (
+                <tr>
+                  <td colSpan={2 + tierCodes.length * ACTIVATIONS.length} className="py-16 text-center" style={{ color: 'var(--ink-3)' }}>
+                    데이터가 없습니다. 단가표 업로드 후 확인해주세요.
+                  </td>
+                </tr>
+              ) : null}
+              {devices.map((d) => (
+                <tr key={d.id} style={{ borderTop: '1px solid var(--line-2)' }}>
+                  <td className="sticky left-0 bg-white px-4 py-2">
+                    <div className="text-[13px] font-semibold">{d.name}</div>
+                    <div className="mono text-[10px]" style={{ color: 'var(--ink-3)' }}>
+                      {d.code}
+                    </div>
+                  </td>
+                  <td className="mono px-3 py-2 text-right text-[12px]" style={{ color: 'var(--ink-3)' }}>
+                    {formatMan(d.retail)}
+                  </td>
+                  {tierCodes.map((code) =>
+                    ACTIVATIONS.map((a) => {
+                      const cell = cellBest.get(`${d.id}|${code}|${a.v}`);
+                      const leftBorder = a.v === 'new010' ? '1px solid var(--line)' : 'none';
+                      if (!cell)
+                        return (
+                          <td
+                            key={`${code}-${a.v}`}
+                            className="px-1.5 py-2 text-center"
+                            style={{ color: 'var(--ink-3)', borderLeft: leftBorder }}
+                          >
+                            —
+                          </td>
+                        );
+                      const neg = cell.price < 0;
+                      return (
+                        <td
+                          key={`${code}-${a.v}`}
+                          title={`거래처: ${cell.vendor}`}
+                          className="mono px-1.5 py-2 text-right"
+                          style={{
+                            borderLeft: leftBorder,
+                            color: neg ? 'var(--red)' : 'var(--ink)',
+                            fontWeight: neg ? 700 : 500,
+                          }}
+                        >
+                          {formatMan(cell.price)}
+                        </td>
+                      );
+                    }),
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
-    </div>
+    </>
   );
 }

@@ -109,28 +109,34 @@ export default async function SheetReviewPage({
   for (const [k, v] of flagMap.entries()) flagMapObj[k] = v;
 
   return (
-    <div className="space-y-5">
-      <header className="flex items-start justify-between">
+    <>
+      <header className="page-header">
         <div>
-          <div className="flex items-center gap-2 text-sm text-zinc-500">
-            <Link href="/uploads" className="hover:text-zinc-900">
-              ← 단가표 업로드
+          <div className="crumbs">
+            <Link href="/uploads" style={{ color: 'var(--ink-3)' }}>
+              업로드
             </Link>
+            {' / '}
+            {vendor?.name}
           </div>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight">
-            {vendor?.name} <span className="text-base font-normal text-zinc-500">({vendor?.carrier})</span>
+          <h1>
+            {vendor?.name} <span className="ml-2 text-[15px] font-normal" style={{ color: 'var(--ink-3)' }}>({vendor?.carrier})</span>
           </h1>
-          <p className="mt-1 text-sm text-zinc-500">
-            {sheet.effective_date}
+          <div className="mt-1 text-[12px]" style={{ color: 'var(--ink-3)' }}>
+            <span className="mono">{sheet.effective_date}</span>
             {sheet.policy_round ? ` · ${sheet.policy_round}` : ''}
             {sheet.effective_time ? ` · ${sheet.effective_time}` : ''}
             {' · '}
-            <span className="font-medium">{STATUS_LABEL[sheet.parse_status] ?? sheet.parse_status}</span>
-          </p>
+            <span className="font-medium" style={{ color: 'var(--ink-2)' }}>
+              {STATUS_LABEL[sheet.parse_status] ?? sheet.parse_status}
+            </span>
+          </div>
         </div>
         <form action={deleteSheet} className="inline">
           <input type="hidden" name="sheet_id" value={sheet.id} />
-          <button className="rounded bg-red-50 px-3 py-1.5 text-xs text-red-600 hover:bg-red-100">삭제</button>
+          <button className="btn btn-sm" style={{ background: '#faeeec', color: 'var(--red)' }}>
+            삭제
+          </button>
         </form>
       </header>
 
@@ -146,7 +152,7 @@ export default async function SheetReviewPage({
       ) : null}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)]">
-        <section className="rounded-xl border border-zinc-200 bg-white p-4">
+        <section className="card p-4">
           <div className="mb-3 flex items-center justify-between gap-2">
             <h2 className="text-sm font-semibold">원본 이미지</h2>
             {sheet.image_url ? (
@@ -196,7 +202,7 @@ export default async function SheetReviewPage({
                   </details>
                 </div>
               )}
-              <div className="rounded-xl border border-zinc-200 bg-white p-4">
+              <div className="card p-4">
                 <h2 className="mb-2 text-sm font-semibold">파싱 요약</h2>
                 <ul className="text-sm text-zinc-700">
                   <li>모델 수: <b>{raw.models?.length ?? 0}</b></li>
@@ -249,12 +255,14 @@ export default async function SheetReviewPage({
       </div>
 
       {sheet.notes ? (
-        <section className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm">
-          <h3 className="mb-1 font-semibold text-amber-900">메모</h3>
-          <pre className="whitespace-pre-wrap text-xs text-amber-800">{sheet.notes}</pre>
+        <section className="alert mt-4">
+          <div>
+            <div className="mb-1 font-semibold">메모</div>
+            <pre className="whitespace-pre-wrap text-[11px]">{sheet.notes}</pre>
+          </div>
         </section>
       ) : null}
-    </div>
+    </>
   );
 }
 
@@ -269,7 +277,7 @@ const STATUS_LABEL: Record<string, string> = {
 function PoliciesList({ policies }: { policies: SheetExtraction['policies'] }) {
   if (!policies?.length) return null;
   return (
-    <div className="rounded-xl border border-zinc-200 bg-white p-4">
+    <div className="card p-4">
       <h2 className="mb-2 text-sm font-semibold">파싱된 부가정책</h2>
       <ul className="space-y-1 text-sm">
         {policies.map((p, i) => (
@@ -288,7 +296,7 @@ function PoliciesList({ policies }: { policies: SheetExtraction['policies'] }) {
 
 function RawJsonEditor({ sheetId, raw }: { sheetId: string; raw: SheetExtraction }) {
   return (
-    <details className="rounded-xl border border-zinc-200 bg-white p-4">
+    <details className="card p-4">
       <summary className="cursor-pointer text-sm font-semibold">raw JSON 편집 (고급)</summary>
       <form action={updateParsed} className="mt-2 space-y-2">
         <input type="hidden" name="sheet_id" value={sheetId} />

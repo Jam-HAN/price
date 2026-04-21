@@ -1,5 +1,6 @@
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { createAlias, deleteAlias } from './actions';
+import { PageHeader } from '@/components/ui';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,15 +16,10 @@ export default async function AliasesPage() {
   ]);
 
   return (
-    <div className="space-y-5">
-      <header>
-        <h1 className="page-title">거래처 코드 매핑</h1>
-        <p className="mt-1 text-sm text-zinc-500">
-          거래처마다 쓰는 모델 코드(예: SM-S942N_512G / UIP17-256)를 내부 모델에 매핑. 단가표 파싱 시 자동 활용.
-        </p>
-      </header>
+    <>
+      <PageHeader crumbs={['대박통신', '마스터', '코드 매핑']} title="거래처 코드 매핑" />
 
-      <section className="rounded-xl border border-zinc-200 bg-white p-4">
+      <section className="card p-4 mb-4">
         <h2 className="mb-3 text-sm font-semibold">매핑 추가</h2>
         <form action={createAlias} className="flex flex-wrap items-end gap-2">
           <label className="flex flex-col text-xs text-zinc-600">
@@ -50,7 +46,7 @@ export default async function AliasesPage() {
         </form>
       </section>
 
-      <section className="overflow-hidden rounded-xl border border-zinc-200 bg-white">
+      <section className="card overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-zinc-50 text-xs uppercase tracking-wide text-zinc-500">
             <tr>
@@ -92,6 +88,6 @@ export default async function AliasesPage() {
           </tbody>
         </table>
       </section>
-    </div>
+    </>
   );
 }

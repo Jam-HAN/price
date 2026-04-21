@@ -1,6 +1,6 @@
-import Link from 'next/link';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { compareDevicesForList } from '@/lib/fmt';
+import { PageHeader, SegmentedLink, type CarrierKey } from '@/components/ui';
 import { RebateTable } from './RebateTable';
 
 export const dynamic = 'force-dynamic';
@@ -45,22 +45,18 @@ export default async function RebatesPage({ searchParams }: { searchParams: Sear
     : { data: [] as { sheet_id: string; device_id: string; plan_tier_id: string; contract_type: 'common' | 'select'; activation_type: 'new010' | 'mnp' | 'change'; amount_krw: number }[] };
 
   return (
-    <div className="space-y-5">
-      <header className="flex items-center justify-between">
-        <h1 className="page-title">리베이트</h1>
-        <div className="pill-tabs">
-          {CARRIERS.map((c) => (
-            <Link
-              key={c}
-              href={`/rebates?carrier=${encodeURIComponent(c)}`}
-              className={`pill-tab ${c === carrier ? 'pill-tab-active' : 'pill-tab-idle'}`}
-            >
-              {c}
-            </Link>
-          ))}
-        </div>
-      </header>
-
+    <>
+      <PageHeader
+        crumbs={['대박통신', '가격', '리베이트']}
+        title="리베이트 (거래처)"
+        actions={
+          <SegmentedLink
+            value={carrier}
+            options={CARRIERS.map((c) => ({ v: c as CarrierKey, label: c }))}
+            hrefFor={(c) => `/rebates?carrier=${encodeURIComponent(c)}`}
+          />
+        }
+      />
       <RebateTable
         carrier={carrier}
         vendors={vendors ?? []}
@@ -69,6 +65,6 @@ export default async function RebatesPage({ searchParams }: { searchParams: Sear
         rebates={rebates ?? []}
         latestSheetByVendor={Object.fromEntries(latestSheetByVendor)}
       />
-    </div>
+    </>
   );
 }

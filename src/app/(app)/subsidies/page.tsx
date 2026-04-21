@@ -1,6 +1,6 @@
-import Link from 'next/link';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { compareDevicesForList } from '@/lib/fmt';
+import { PageHeader, SegmentedLink, type CarrierKey } from '@/components/ui';
 import { SubsidyTable } from './SubsidyTable';
 
 export const dynamic = 'force-dynamic';
@@ -29,23 +29,19 @@ export default async function SubsidiesPage({ searchParams }: { searchParams: Se
   };
 
   return (
-    <div className="space-y-5">
-      <header className="flex items-center justify-between">
-        <h1 className="page-title">공통지원금</h1>
-        <div className="pill-tabs">
-          {CARRIERS.map((c) => (
-            <Link
-              key={c}
-              href={`/subsidies?carrier=${encodeURIComponent(c)}`}
-              className={`pill-tab ${c === carrier ? 'pill-tab-active' : 'pill-tab-idle'}`}
-            >
-              {c}
-            </Link>
-          ))}
-        </div>
-      </header>
-
+    <>
+      <PageHeader
+        crumbs={['대박통신', '가격', '공통지원금']}
+        title="공통지원금"
+        actions={
+          <SegmentedLink
+            value={carrier}
+            options={CARRIERS.map((c) => ({ v: c as CarrierKey, label: c }))}
+            hrefFor={(c) => `/subsidies?carrier=${encodeURIComponent(c)}`}
+          />
+        }
+      />
       <SubsidyTable carrier={carrier} bundle={bundle} />
-    </div>
+    </>
   );
 }
