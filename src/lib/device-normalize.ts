@@ -33,6 +33,27 @@ export function normalizeDeviceCode(raw: string): string {
   return storage ? `SM-${family}N_${storage}` : `SM-${family}N`;
 }
 
+/** family code (예: S942) → 시리즈 카테고리 */
+const SAMSUNG_FAMILY_SERIES: Record<string, string> = {
+  // Galaxy S26
+  S942: 'galaxyS26', S947: 'galaxyS26', S948: 'galaxyS26',
+  // Galaxy S25
+  S731: 'galaxyS25', S931: 'galaxyS25', S936: 'galaxyS25', S937: 'galaxyS25', S938: 'galaxyS25',
+  // Z Fold/Flip 7
+  F766: 'flip7', F731: 'flip7', F761: 'flip7',
+  F966: 'fold7', F961: 'fold7',
+  // Z Fold/Flip 6
+  F741: 'flip6', F756: 'flip6',
+  F946: 'fold6', F956: 'fold6',
+  // A·M·Tab·Watch → galaxyEtc으로 묶기 (SERIES_ORDER에서 6위)
+  A165: 'galaxyEtc', A166: 'galaxyEtc', A175: 'galaxyEtc', A366: 'galaxyEtc',
+  A556: 'galaxyEtc', A566: 'galaxyEtc', A2886: 'galaxyEtc',
+  M166: 'galaxyEtc', M366: 'galaxyEtc',
+  X216: 'tablet', X236: 'tablet',
+  L135: 'wearable', L305: 'wearable', L315: 'wearable', L325: 'wearable',
+  L335: 'wearable', L505: 'wearable', L705: 'wearable',
+};
+
 /**
  * model_code의 family(예: S942, F766)를 표준 한글 제품명으로 매핑.
  * 매핑이 없는 family는 null 반환 → 호출자가 기존 nickname 유지.
@@ -93,19 +114,53 @@ function storageLabel(storageRaw: string | null | undefined): string {
 }
 
 /**
+ * 문자열에서 Samsung family code 추출 (예: "A175 KP(자조폰)" → "A175").
+ * SM- 프리픽스 없고 suffix 지저분해도 가능한 한 인식.
+ */
+export function extractFamilyCode(raw: string): string | null {
+  if (!raw) return null;
+  const up = raw.toUpperCase();
+  const m = up.match(/([A-Z])(\d{3})/);
+  if (!m) return null;
+  const key = `${m[1]}${m[2]}`;
+  if (SAMSUNG_FAMILY_NAMES[key]) return key;
+  return null;
+}
+
+/** family code에서 시리즈 카테고리 찾기 */
+export function canonicalSeries(modelCode: string): string | null {
+  const fam = extractFamilyCode(modelCode);
+  if (!fam) return null;
+  return SAMSUNG_FAMILY_SERIES[fam] ?? null;
+}
+
+/**
  * model_code에서 표준 한글 제품명을 생성.
- * 매핑 없으면 null (호출자가 기존 nickname 유지).
- * 예: SM-S942N_256G → "갤럭시 S26 256G"
- *     SM-S948N_1T   → "갤럭시 S26 울트라 1TB"
+ * 엄격 매칭(SM-XXXN_YYYG) 우선, 실패 시 family만 인식하고 변형(KP/ZEM/MOM/자조) 접미사 보존.
+ * 매핑 없으면 null.
  */
 export function canonicalNickname(modelCode: string): string | null {
-  const m = modelCode.match(/^SM-([A-Z])(\d{3})N?(?:_(.+))?$/);
-  if (!m) return null;
-  const [, letter, num, storage] = m;
-  const key = `${letter}${num}`;
-  const base = SAMSUNG_FAMILY_NAMES[key];
+  // 1) 엄격 패턴
+  const strict = modelCode.match(/^SM-([A-Z])(\d{3})N?(?:_(.+))?$/);
+  if (strict) {
+    const key = `${strict[1]}${strict[2]}`;
+    const base = SAMSUNG_FAMILY_NAMES[key];
+    if (base) return base + storageLabel(strict[3]);
+  }
+
+  // 2) 느슨한 패턴 — vendor raw code (A175 KP, SM-A175NK-KP 등)
+  const fam = extractFamilyCode(modelCode);
+  if (!fam) return null;
+  const base = SAMSUNG_FAMILY_NAMES[fam];
   if (!base) return null;
-  return base + storageLabel(storage);
+
+  const up = modelCode.toUpperCase();
+  // 흔한 변형 태그
+  if (up.includes('KP') || up.includes('자조')) return `${base} KP`;
+  if (up.includes('ZEM')) return `${base} ZEM`;
+  if (up.includes('MOM')) return `${base} MOM`;
+  if (up.includes('UM') || up.includes('우주')) return `${base} UM`;
+  return base;
 }
 
 /**
