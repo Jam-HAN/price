@@ -47,11 +47,21 @@ export default async function SheetReviewPage({
   const deviceByCode = new Map((devices ?? []).map((d) => [d.model_code, d.id]));
   const deviceByNick = new Map((devices ?? []).map((d) => [d.nickname, d.id]));
   const tierCodes = new Set((tiers ?? []).map((t) => t.code));
+  const { normalizeDeviceCode } = await import('@/lib/device-normalize');
+  const deviceByNormalized = new Map<string, string>();
+  for (const d of devices ?? []) {
+    const n = normalizeDeviceCode(d.model_code);
+    if (!deviceByNormalized.has(n)) deviceByNormalized.set(n, d.id);
+  }
 
   const unmappedModels: string[] = [];
   const unmappedTiers: string[] = [];
   for (const m of raw?.models ?? []) {
-    const hit = aliasMap.get(m.model_code_raw) ?? deviceByCode.get(m.model_code_raw) ?? deviceByNick.get(m.nickname);
+    const hit =
+      aliasMap.get(m.model_code_raw) ??
+      deviceByCode.get(m.model_code_raw) ??
+      deviceByNormalized.get(normalizeDeviceCode(m.model_code_raw)) ??
+      deviceByNick.get(m.nickname);
     if (!hit) unmappedModels.push(`${m.model_code_raw} · ${m.nickname}`);
     for (const t of m.tiers ?? []) {
       if (!tierCodes.has(t.plan_tier_code)) unmappedTiers.push(`${t.plan_tier_code} (${m.nickname})`);

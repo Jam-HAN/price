@@ -1,5 +1,6 @@
 import type { SheetExtraction } from './vision-schema';
 import { getSupabaseAdmin } from './supabase';
+import { normalizeDeviceCode } from './device-normalize';
 
 /**
  * raw_ocr_json을 price_vendor_quotes / subsidies / policies로 동기화.
@@ -31,6 +32,11 @@ export async function syncSheetToNormalized(sheetId: string) {
   const aliasMap = new Map((aliases ?? []).map((a) => [a.vendor_code, a.device_id]));
   const deviceByCode = new Map((devices ?? []).map((d) => [d.model_code, d.id]));
   const deviceByNick = new Map((devices ?? []).map((d) => [d.nickname, d.id]));
+  const deviceByNormalized = new Map<string, string>();
+  for (const d of devices ?? []) {
+    const n = normalizeDeviceCode(d.model_code);
+    if (!deviceByNormalized.has(n)) deviceByNormalized.set(n, d.id);
+  }
   const tierByCode = new Map((tiers ?? []).map((t) => [t.code, t.id]));
 
   type Quote = {
@@ -49,9 +55,11 @@ export async function syncSheetToNormalized(sheetId: string) {
   let unmapped = 0;
 
   for (const model of raw.models ?? []) {
+    const normalized = normalizeDeviceCode(model.model_code_raw);
     const deviceId =
       aliasMap.get(model.model_code_raw) ??
       deviceByCode.get(model.model_code_raw) ??
+      deviceByNormalized.get(normalized) ??
       deviceByNick.get(model.nickname);
     if (!deviceId) {
       unmapped++;

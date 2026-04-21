@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import type { SheetExtraction } from '@/lib/vision-schema';
 import { syncSheetToNormalized } from '@/lib/sync-sheet';
+import { normalizeDeviceCode } from '@/lib/device-normalize';
 
 export async function deleteSheet(formData: FormData) {
   const sheetId = String(formData.get('sheet_id') ?? '');
@@ -40,15 +41,40 @@ export async function autoRegisterMissingDevices(formData: FormData) {
   const { data: devices } = await sb.from('price_devices').select('id, model_code, nickname');
   const deviceByCode = new Map((devices ?? []).map((d) => [d.model_code, d.id]));
   const deviceByNick = new Map((devices ?? []).map((d) => [d.nickname, d.id]));
+  // 정규화된 code로도 lookup — 거래처마다 다른 code(SM-S948NK512, SM-S948N512G 등)가 들어와도
+  // 이미 등록된 canonical(SM-S948N_512G)을 찾아 alias만 추가하게 함
+  const deviceByNormalized = new Map<string, string>();
+  for (const d of devices ?? []) {
+    const n = normalizeDeviceCode(d.model_code);
+    if (!deviceByNormalized.has(n)) deviceByNormalized.set(n, d.id);
+  }
 
   let created = 0;
   let linked = 0;
   for (const model of raw.models ?? []) {
+    const normalizedCode = normalizeDeviceCode(model.model_code_raw);
     const already =
       aliasMap.get(model.model_code_raw) ??
       deviceByCode.get(model.model_code_raw) ??
+      deviceByNormalized.get(normalizedCode) ??
       deviceByNick.get(model.nickname);
-    if (already) continue;
+    if (already) {
+      // 기존 canonical에 이번 거래처 alias가 아직 없으면 추가
+      if (!aliasMap.has(model.model_code_raw)) {
+        const { error: aliasErr } = await sb
+          .from('price_device_aliases')
+          .insert({
+            device_id: already,
+            vendor_id: sheet.vendor_id,
+            vendor_code: model.model_code_raw,
+          });
+        if (!aliasErr) {
+          linked++;
+          aliasMap.set(model.model_code_raw, already);
+        }
+      }
+      continue;
+    }
 
     const n = model.nickname.toLowerCase();
     let category = '5G';
@@ -70,7 +96,8 @@ export async function autoRegisterMissingDevices(formData: FormData) {
       ? seriesHints[Object.keys(seriesHints).find((k) => model.nickname.includes(k))!]
       : null;
 
-    let modelCode = model.model_code_raw;
+    // 새 디바이스는 정규화된 코드로 저장 (캐노니컬 폼)
+    let modelCode = normalizedCode;
     if (deviceByCode.has(modelCode)) modelCode = `${modelCode}_${Date.now().toString(36)}`;
 
     const { data: inserted, error: insErr } = await sb
@@ -91,6 +118,7 @@ export async function autoRegisterMissingDevices(formData: FormData) {
     created++;
     deviceByCode.set(modelCode, inserted.id);
     deviceByNick.set(model.nickname, inserted.id);
+    deviceByNormalized.set(normalizedCode, inserted.id);
 
     const { error: aliasErr } = await sb
       .from('price_device_aliases')
