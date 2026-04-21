@@ -5,6 +5,8 @@ import { signedUrl } from '@/lib/storage';
 import type { SheetExtraction } from '@/lib/vision-schema';
 import { formatKrw } from '@/lib/fmt';
 import { confirmSheet, deleteSheet, updateParsed, autoRegisterMissingDevices } from './actions';
+import { detectSuspiciousModels } from '@/lib/quality';
+import { ReparseButton } from './ReparseButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -112,6 +114,37 @@ export default async function SheetReviewPage({
         <section className="space-y-4">
           {raw ? (
             <>
+              {(() => {
+                const suspicious = detectSuspiciousModels(raw);
+                if (suspicious.length === 0) return null;
+                return (
+                  <div className="rounded-xl border border-amber-300 bg-amber-50 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <h2 className="text-sm font-bold text-amber-900">⚠ 파싱 품질 경고 · {suspicious.length}개 모델 의심</h2>
+                        <p className="mt-1 text-xs text-amber-800">
+                          같은 값이 여러 구간에 연속 반복되거나 전체 null 같은 패턴 발견. Claude Opus로 타겟 재파싱을 권장합니다.
+                        </p>
+                      </div>
+                      <ReparseButton
+                        sheetId={sheet.id}
+                        modelCodes={suspicious.map((s) => s.model_code)}
+                        label={`의심 모델 ${Math.min(suspicious.length, 15)}개 재파싱 (Opus)`}
+                      />
+                    </div>
+                    <details className="mt-2 text-xs text-amber-900">
+                      <summary className="cursor-pointer">상세 보기 ({suspicious.length}개)</summary>
+                      <ul className="mt-1 space-y-0.5">
+                        {suspicious.slice(0, 30).map((s) => (
+                          <li key={s.model_code} className="font-mono">
+                            <span className="inline-block w-24 text-[10px]">[{s.issue}]</span> {s.model_code} · {s.nickname} — {s.detail}
+                          </li>
+                        ))}
+                      </ul>
+                    </details>
+                  </div>
+                );
+              })()}
               <div className="rounded-xl border border-zinc-200 bg-white p-4">
                 <h2 className="mb-2 text-sm font-semibold">파싱 요약</h2>
                 <ul className="text-sm text-zinc-700">

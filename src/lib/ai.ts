@@ -1,16 +1,19 @@
 import { generateText, Output } from 'ai';
 import { z } from 'zod';
 
-export const VISION_MODEL = 'anthropic/claude-opus-4.7';
+export const VISION_MODEL_PRIMARY = 'anthropic/claude-sonnet-4.6';
+export const VISION_MODEL_REPARSE = 'anthropic/claude-opus-4.7';
+export const VISION_MODEL = VISION_MODEL_PRIMARY;
 
 export async function visionExtract<T extends z.ZodTypeAny>(params: {
   imageBytes: Uint8Array | Buffer;
   prompt: string;
   schema: T;
   maxTokens?: number;
+  model?: string;
 }): Promise<z.infer<T>> {
   const result = await generateText({
-    model: VISION_MODEL,
+    model: params.model ?? VISION_MODEL,
     output: Output.object({ schema: params.schema }),
     maxOutputTokens: params.maxTokens ?? 32000,
     messages: [
