@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useOptimistic, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { formatMan } from '@/lib/fmt';
 import { toggleDeviceActive, bulkSetActive } from './actions';
@@ -40,17 +40,24 @@ const PRESETS: { label: string; seriesKeys: string[] }[] = [
   { label: 'Apple 전체',    seriesKeys: ['iPhone17', 'iPhoneAir', 'iPhone16', 'iPhone15'] },
 ];
 
-export function DeviceCurator({ devices }: { devices: Device[] }) {
+export function DeviceCurator({ devices: initialDevices }: { devices: Device[] }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [query, setQuery] = useState('');
   const [showInactive, setShowInactive] = useState(true);
 
-  const activeCount = devices.filter((d) => d.active).length;
+  // Optimistic state — UI는 즉시 반영, 서버 저장은 백그라운드
+  const [optimisticDevices, applyOptimistic] = useOptimistic(
+    initialDevices,
+    (current: Device[], update: { ids: Set<string>; active: boolean }) =>
+      current.map((d) => (update.ids.has(d.id) ? { ...d, active: update.active } : d)),
+  );
 
-  const grouped = GROUPS.map((g) => ({
+  const activeCount = optimisticDevices.filter((d) => d.active).length;
+
+  const grouped = useMemo(() => GROUPS.map((g) => ({
     ...g,
-    items: devices
+    items: optimisticDevices
       .filter((d) => g.series.includes(d.series))
       .filter((d) => (showInactive ? true : d.active))
       .filter((d) => {
@@ -59,12 +66,28 @@ export function DeviceCurator({ devices }: { devices: Device[] }) {
         return d.nickname.toLowerCase().includes(q) || d.model_code.toLowerCase().includes(q);
       })
       .sort((a, b) => a.display_order - b.display_order),
-  })).filter((g) => g.items.length > 0);
+  })).filter((g) => g.items.length > 0), [optimisticDevices, showInactive, query]);
 
   function toggle(id: string, next: boolean) {
     start(async () => {
-      await toggleDeviceActive({ id, active: next });
-      router.refresh();
+      applyOptimistic({ ids: new Set([id]), active: next });
+      try {
+        await toggleDeviceActive({ id, active: next });
+      } catch {
+        router.refresh();
+      }
+    });
+  }
+
+  function applyBulk(ids: string[], active: boolean) {
+    if (ids.length === 0) return;
+    start(async () => {
+      applyOptimistic({ ids: new Set(ids), active });
+      try {
+        await bulkSetActive({ ids, active });
+      } catch {
+        router.refresh();
+      }
     });
   }
 
@@ -72,29 +95,30 @@ export function DeviceCurator({ devices }: { devices: Device[] }) {
     const targetSeriesList = GROUPS
       .filter((g) => seriesKeys.includes(g.key))
       .flatMap((g) => g.series);
-    const activateIds = devices.filter((d) => targetSeriesList.includes(d.series)).map((d) => d.id);
-    const deactivateIds = devices.filter((d) => !targetSeriesList.includes(d.series)).map((d) => d.id);
     start(async () => {
-      await bulkSetActive({ ids: activateIds, active: true });
-      await bulkSetActive({ ids: deactivateIds, active: false });
-      router.refresh();
+      const activateIds = optimisticDevices.filter((d) => targetSeriesList.includes(d.series)).map((d) => d.id);
+      const deactivateIds = optimisticDevices.filter((d) => !targetSeriesList.includes(d.series)).map((d) => d.id);
+      applyOptimistic({ ids: new Set(activateIds), active: true });
+      applyOptimistic({ ids: new Set(deactivateIds), active: false });
+      try {
+        await Promise.all([
+          bulkSetActive({ ids: activateIds, active: true }),
+          bulkSetActive({ ids: deactivateIds, active: false }),
+        ]);
+      } catch {
+        router.refresh();
+      }
     });
   }
 
   function applyAll(active: boolean) {
-    start(async () => {
-      await bulkSetActive({ ids: devices.map((d) => d.id), active });
-      router.refresh();
-    });
+    applyBulk(optimisticDevices.map((d) => d.id), active);
   }
 
   function toggleGroup(series: (string | null)[]) {
-    const items = devices.filter((d) => series.includes(d.series));
+    const items = optimisticDevices.filter((d) => series.includes(d.series));
     const allActive = items.every((d) => d.active);
-    start(async () => {
-      await bulkSetActive({ ids: items.map((d) => d.id), active: !allActive });
-      router.refresh();
-    });
+    applyBulk(items.map((d) => d.id), !allActive);
   }
 
   return (
@@ -103,7 +127,7 @@ export function DeviceCurator({ devices }: { devices: Device[] }) {
       <div className="flex items-center justify-between">
         <div className="text-lg font-semibold">
           판매 중 <span className="text-2xl text-emerald-600">{activeCount}</span>
-          <span className="text-sm text-zinc-400"> / {devices.length}</span>
+          <span className="text-sm text-zinc-400"> / {optimisticDevices.length}</span>
         </div>
         <input
           value={query}
@@ -169,7 +193,6 @@ export function DeviceCurator({ devices }: { devices: Device[] }) {
                 <DeviceCard
                   key={d.id}
                   device={d}
-                  pending={pending}
                   onToggle={() => toggle(d.id, !d.active)}
                 />
               ))}
@@ -181,9 +204,8 @@ export function DeviceCurator({ devices }: { devices: Device[] }) {
   );
 }
 
-function DeviceCard({ device, pending, onToggle }: {
+function DeviceCard({ device, onToggle }: {
   device: Device;
-  pending: boolean;
   onToggle: () => void;
 }) {
   const { nickname, model_code, retail_price_krw, active } = device;
@@ -193,9 +215,8 @@ function DeviceCard({ device, pending, onToggle }: {
   return (
     <button
       type="button"
-      disabled={pending}
       onClick={onToggle}
-      className={`relative rounded-xl border-2 px-3 py-2.5 text-left transition disabled:opacity-50 ${base}`}
+      className={`relative rounded-xl border-2 px-3 py-2.5 text-left transition ${base}`}
     >
       <div className={`text-sm font-medium leading-tight ${active ? '' : 'text-zinc-600'}`}>
         {nickname}
