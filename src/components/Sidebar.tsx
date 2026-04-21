@@ -2,8 +2,9 @@ import Link from 'next/link';
 
 const NAV = [
   { href: '/dashboard', label: '대시보드', phase: '' },
-  { href: '/uploads', label: '단가표 업로드', phase: 'P2' },
-  { href: '/matrix', label: 'Net가 매트릭스', phase: 'P4' },
+  { href: '/uploads', label: '단가표 업로드', phase: '' },
+  { href: '/matrix', label: 'Net가 매트릭스', phase: '' },
+  { href: '/publish', label: '고객용 단가표', phase: '' },
   { type: 'section', label: '마스터' },
   { href: '/vendors', label: '거래처', phase: '' },
   { href: '/plans', label: '요금제 구간', phase: '' },
