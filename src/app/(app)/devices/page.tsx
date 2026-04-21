@@ -20,17 +20,17 @@ export default async function DevicesPage({ searchParams }: { searchParams: Sear
   return (
     <div className="space-y-5">
       <header className="flex items-start justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">모델</h1>
-        <div className="flex items-center gap-1 rounded-full border border-zinc-200 bg-white p-1 text-xs">
+        <h1 className="page-title">모델</h1>
+        <div className="pill-tabs">
           <Link
             href="/devices?mode=curate"
-            className={`rounded-full px-3 py-1 ${mode === 'curate' ? 'bg-zinc-900 text-white' : 'text-zinc-500 hover:bg-zinc-50'}`}
+            className={`pill-tab ${mode === 'curate' ? 'pill-tab-active' : 'pill-tab-idle'}`}
           >
             판매 설정
           </Link>
           <Link
             href="/devices?mode=edit"
-            className={`rounded-full px-3 py-1 ${mode === 'edit' ? 'bg-zinc-900 text-white' : 'text-zinc-500 hover:bg-zinc-50'}`}
+            className={`pill-tab ${mode === 'edit' ? 'pill-tab-active' : 'pill-tab-idle'}`}
           >
             편집
           </Link>

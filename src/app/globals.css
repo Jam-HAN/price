@@ -1,84 +1,193 @@
 @import "tailwindcss";
 
-/* ─── 토큰 ─────────────────────────────────────────── */
+/* ─── 디자인 토큰 (Linear 스타일) ───────────────── */
 :root {
   color-scheme: light;
-  --bg: #fafafa;            /* page bg */
-  --surface: #ffffff;       /* card bg */
-  --border: #e4e4e7;        /* zinc-200 */
-  --border-strong: #d4d4d8; /* zinc-300 */
-  --muted: #71717a;         /* zinc-500 */
-  --fg: #18181b;            /* zinc-900 */
+
+  --bg: #f7f7f8;
+  --surface: #ffffff;
+  --surface-hover: #f4f4f5;
+
+  --border: #e4e4e7;
+  --border-muted: #eeeef0;
+  --border-focus: #18181b;
+
+  --fg: #09090b;
+  --fg-muted: #52525b;
+  --fg-subtle: #71717a;
+  --fg-dim: #a1a1a6;
+
   --primary: #18181b;
-  --primary-fg: #ffffff;
-  --ring: #a1a1aa;          /* zinc-400 */
-  --radius: 12px;
+  --primary-hover: #27272a;
+  --primary-fg: #fafafa;
+
+  --accent: #2563eb;
+  --accent-subtle: #eff6ff;
+
+  --danger: #dc2626;
+  --danger-subtle: #fef2f2;
+  --success: #16a34a;
+  --warning: #d97706;
+
+  --ring-width: 3px;
+  --ring-color: #18181b1a;
+
+  --radius-sm: 6px;
+  --radius: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.06), 0 2px 4px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 20px 40px rgba(0, 0, 0, 0.08), 0 8px 16px rgba(0, 0, 0, 0.04);
 }
 
 html, body {
   background: var(--bg);
   color: var(--fg);
-  font-family: "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  font-feature-settings: "ss01", "ss02", "tnum";
+  font-family: "Pretendard Variable", "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-feature-settings: "ss01", "ss02", "tnum", "cv11";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* 폼 요소 기본 색 */
 input, select, textarea, button {
   color: inherit;
-  background-color: #ffffff;
+  background-color: var(--surface);
 }
 
 input[type="checkbox"] {
   accent-color: var(--primary);
 }
 
-/* ─── 재사용 유틸 ────────────────────────────────── */
+::selection {
+  background: #18181b;
+  color: #fafafa;
+}
+
+/* 스크롤바 (macOS 스타일) */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: #d4d4d8; border-radius: 5px; border: 2px solid var(--bg); }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* ─── 재사용 컴포넌트 ────────────────────────────── */
 @layer components {
-  /* 카드 */
   .card {
-    @apply rounded-xl border border-zinc-200 bg-white;
+    @apply rounded-xl border bg-white;
+    border-color: var(--border);
   }
 
-  /* 페이지 타이틀 */
+  .card-elevated {
+    @apply rounded-xl border bg-white;
+    border-color: var(--border);
+    box-shadow: var(--shadow-sm);
+  }
+
   .page-title {
-    @apply text-2xl font-bold tracking-tight;
+    @apply text-[22px] font-semibold leading-tight tracking-[-0.01em];
   }
 
-  /* 섹션 헤더 (카드 상단 etc) */
-  .section-header {
-    @apply border-b border-zinc-100 bg-zinc-50 px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-zinc-500;
+  .section-label {
+    @apply text-[11px] font-medium uppercase tracking-[0.08em];
+    color: var(--fg-subtle);
   }
+
+  .muted { color: var(--fg-muted); }
+  .subtle { color: var(--fg-subtle); }
 
   /* 버튼 */
+  .btn {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-lg px-3.5 py-[7px] text-[13px] font-medium transition-all;
+    letter-spacing: -0.005em;
+  }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
   .btn-primary {
-    @apply rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50;
+    background: var(--primary);
+    color: var(--primary-fg);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
   }
+  .btn-primary:hover { background: var(--primary-hover); }
+
   .btn-secondary {
-    @apply rounded-lg border border-zinc-200 bg-white px-4 py-2 text-sm text-zinc-700 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50;
+    background: var(--surface);
+    color: var(--fg);
+    border: 1px solid var(--border);
   }
-  .btn-ghost {
-    @apply rounded-lg px-3 py-1.5 text-sm text-zinc-600 transition hover:bg-zinc-100;
-  }
-  .btn-danger {
-    @apply rounded-lg bg-red-50 px-3 py-1.5 text-sm font-medium text-red-600 transition hover:bg-red-100;
+  .btn-secondary:hover {
+    background: var(--surface-hover);
+    border-color: var(--border-focus);
   }
 
-  /* pill 탭 컨테이너 */
+  .btn-ghost {
+    background: transparent;
+    color: var(--fg-muted);
+  }
+  .btn-ghost:hover {
+    background: var(--surface-hover);
+    color: var(--fg);
+  }
+
+  .btn-danger {
+    background: var(--danger-subtle);
+    color: var(--danger);
+  }
+  .btn-danger:hover { background: #fee2e2; }
+
+  /* pill 탭 */
   .pill-tabs {
-    @apply flex items-center gap-0.5 rounded-full border border-zinc-200 bg-white p-1 text-xs;
+    @apply inline-flex items-center gap-0.5 rounded-lg border bg-white p-0.5;
+    border-color: var(--border);
+    box-shadow: var(--shadow-sm);
   }
   .pill-tab {
-    @apply rounded-full px-4 py-1 transition;
+    @apply rounded-md px-3 py-1 text-[12px] font-medium transition;
   }
   .pill-tab-active {
-    @apply bg-zinc-900 text-white;
+    background: var(--primary);
+    color: var(--primary-fg);
   }
   .pill-tab-idle {
-    @apply text-zinc-500 hover:bg-zinc-50;
+    color: var(--fg-muted);
+  }
+  .pill-tab-idle:hover {
+    background: var(--surface-hover);
+    color: var(--fg);
   }
 
   /* 입력 */
   .input {
-    @apply rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-zinc-500;
+    @apply rounded-lg border bg-white px-3 py-[7px] text-[13px] outline-none transition;
+    border-color: var(--border);
+  }
+  .input:hover { border-color: #d4d4d8; }
+  .input:focus {
+    border-color: var(--border-focus);
+    box-shadow: 0 0 0 var(--ring-width) var(--ring-color);
+  }
+
+  /* 데이터 테이블 */
+  .data-table {
+    @apply w-full text-[13px];
+  }
+  .data-table thead th,
+  .data-head {
+    @apply px-4 py-2 text-left text-[11px] font-medium uppercase tracking-[0.06em];
+    color: var(--fg-subtle);
+    background: var(--surface-hover);
+    border-bottom: 1px solid var(--border);
+  }
+  .data-table tbody tr,
+  .data-row {
+    border-top: 1px solid var(--border-muted);
+  }
+  .data-table tbody tr:hover,
+  .data-row:hover {
+    background: var(--surface-hover);
+  }
+  .data-table tbody td,
+  .data-cell {
+    @apply px-4 py-2.5;
   }
 }

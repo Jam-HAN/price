@@ -78,20 +78,20 @@ export default async function MatrixPage({ searchParams }: { searchParams: Searc
   return (
     <div className="space-y-5">
       <header className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">Net가</h1>
+        <h1 className="page-title">Net가</h1>
         <div className="flex gap-2">
-          <div className="flex items-center gap-1 rounded-full border border-zinc-200 bg-white p-1 text-xs">
+          <div className="pill-tabs">
             {CARRIERS.map((c) => (
               <Link key={c} href={`/matrix?carrier=${c}&contract=${contract}`}
-                className={`rounded-full px-4 py-1 ${c === carrier ? 'bg-zinc-900 text-white' : 'text-zinc-500 hover:bg-zinc-50'}`}>
+                className={`pill-tab ${c === carrier ? 'pill-tab-active' : 'pill-tab-idle'}`}>
                 {c}
               </Link>
             ))}
           </div>
-          <div className="flex items-center gap-1 rounded-full border border-zinc-200 bg-white p-1 text-xs">
+          <div className="pill-tabs">
             {CONTRACTS.map((c) => (
               <Link key={c.v} href={`/matrix?carrier=${carrier}&contract=${c.v}`}
-                className={`rounded-full px-4 py-1 ${c.v === contract ? 'bg-zinc-900 text-white' : 'text-zinc-500 hover:bg-zinc-50'}`}>
+                className={`pill-tab ${c.v === contract ? 'pill-tab-active' : 'pill-tab-idle'}`}>
                 {c.label}
               </Link>
             ))}

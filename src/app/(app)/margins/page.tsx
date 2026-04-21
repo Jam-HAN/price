@@ -19,7 +19,7 @@ export default async function MarginsPage() {
   return (
     <div className="space-y-5">
       <header>
-        <h1 className="text-2xl font-bold tracking-tight">마진</h1>
+        <h1 className="page-title">마진</h1>
       </header>
 
       <MarginManager

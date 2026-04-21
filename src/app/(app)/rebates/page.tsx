@@ -47,13 +47,13 @@ export default async function RebatesPage({ searchParams }: { searchParams: Sear
   return (
     <div className="space-y-5">
       <header className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">리베이트</h1>
-        <div className="flex items-center gap-1 rounded-full border border-zinc-200 bg-white p-1 text-xs">
+        <h1 className="page-title">리베이트</h1>
+        <div className="pill-tabs">
           {CARRIERS.map((c) => (
             <Link
               key={c}
               href={`/rebates?carrier=${encodeURIComponent(c)}`}
-              className={`rounded-full px-4 py-1 ${c === carrier ? 'bg-zinc-900 text-white' : 'text-zinc-500 hover:bg-zinc-50'}`}
+              className={`pill-tab ${c === carrier ? 'pill-tab-active' : 'pill-tab-idle'}`}
             >
               {c}
             </Link>
