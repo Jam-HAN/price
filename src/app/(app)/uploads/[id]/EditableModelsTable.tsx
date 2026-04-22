@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import type { SheetExtraction } from '@/lib/vision-schema';
 import type { CellFlag, CellField } from '@/lib/consistency';
-import { formatMan, compareDevicesForList } from '@/lib/fmt';
+import { formatMan } from '@/lib/fmt';
 import { updateCellAction } from './cell-actions';
 
 type FlagMap = Record<string, CellFlag>; // key = model_code_raw|tier|field
@@ -21,10 +21,9 @@ export function EditableModelsTable({
   const tierCodes = Array.from(
     new Set((raw.models ?? []).flatMap((m) => (m.tiers ?? []).map((t) => t.plan_tier_code))),
   );
-  // raw_ocr_json.models를 comparator 시그니처에 맞게 매핑 (model_code는 code_raw 사용)
-  const sortedModels = [...(raw.models ?? [])]
-    .map((m) => ({ ...m, model_code: m.model_code_raw }))
-    .sort(compareDevicesForList);
+  // 업로드한 원본 단가표의 모델 등장 순서를 그대로 유지 (이미지와 1:1 대조용).
+  // 정렬 규칙 적용 X — 이미지와 순서 동일해야 오독 검수가 편함.
+  const sortedModels = (raw.models ?? []).map((m) => ({ ...m, model_code: m.model_code_raw }));
 
   return (
     <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white">
