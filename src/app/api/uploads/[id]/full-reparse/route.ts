@@ -1,36 +1,61 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { downloadSheet } from '@/lib/storage';
-import { parseSheetImage, type Carrier, VISION_MODEL_CLAUDE, VISION_MODEL_GEMINI, VISION_MODEL_GPT5 } from '@/lib/vision-parse';
+import { clovaExtract } from '@/lib/clova-ocr';
+import { resolveClovaParser } from '@/lib/clova-parse-router';
+import { cropAndResize, type CropSpec } from '@/lib/image-crop';
 import { syncSheetToNormalized } from '@/lib/sync-sheet';
 
 export const maxDuration = 300;
 
-export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
+function parseCropSpec(raw: unknown): CropSpec | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const o = raw as Record<string, unknown>;
+  const y0 = Number(o.yRatio0);
+  const y1 = Number(o.yRatio1);
+  const w = Number(o.targetWidth);
+  if (!Number.isFinite(y0) || !Number.isFinite(y1) || !Number.isFinite(w)) return null;
+  if (y0 < 0 || y0 >= 1 || y1 <= y0 || y1 > 1) return null;
+  if (w < 400 || w > 4000) return null;
+  return { yRatio0: y0, yRatio1: y1, targetWidth: Math.round(w) };
+}
+
+export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const { model } = (await req.json().catch(() => ({}))) as { model?: 'gemini' | 'claude' | 'gpt5' };
-    const selectedModel =
-      model === 'claude' ? VISION_MODEL_CLAUDE :
-      model === 'gpt5' ? VISION_MODEL_GPT5 :
-      VISION_MODEL_GEMINI;
-
     const sb = getSupabaseAdmin();
     const { data: sheet, error } = await sb
       .from('price_vendor_quote_sheets')
-      .select('id, vendor_id, image_url, vendor:price_vendors(name, carrier)')
+      .select('id, vendor_id, image_url, vendor:price_vendors(name, carrier, crop_spec)')
       .eq('id', id)
       .single();
     if (error || !sheet) return NextResponse.json({ error: 'sheet 조회 실패' }, { status: 404 });
     const vendor = Array.isArray(sheet.vendor) ? sheet.vendor[0] : sheet.vendor;
     if (!sheet.image_url) return NextResponse.json({ error: '원본 이미지 없음' }, { status: 400 });
 
+    const clovaRoute = resolveClovaParser(vendor.name);
+    if (!clovaRoute) {
+      return NextResponse.json(
+        { error: `CLOVA 파서 미등록 거래처: ${vendor.name}` },
+        { status: 400 },
+      );
+    }
+
     const imageBytes = await downloadSheet(sheet.image_url);
-    const parsed = await parseSheetImage({
-      imageBytes,
-      carrier: vendor.carrier as Carrier,
-      vendorName: vendor.name,
-      model: selectedModel,
+    const effectiveCrop = parseCropSpec(vendor.crop_spec);
+    const bytesForOcr = effectiveCrop ? await cropAndResize(imageBytes, effectiveCrop) : imageBytes;
+    const formatForOcr = effectiveCrop
+      ? 'png'
+      : sheet.image_url.endsWith('.jpg') || sheet.image_url.endsWith('.jpeg')
+        ? 'jpg'
+        : 'png';
+
+    const clovaImg = await clovaExtract({ imageBytes: bytesForOcr, format: formatForOcr });
+    const parsed = clovaRoute.parser({
+      version: 'V2',
+      requestId: '',
+      timestamp: Date.now(),
+      images: [clovaImg],
     });
 
     await sb
@@ -41,6 +66,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         effective_time: parsed.effective_time,
         parse_status: 'parsed',
         parsed_at: new Date().toISOString(),
+        error_message: null,
       })
       .eq('id', id);
 
@@ -48,7 +74,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
     return NextResponse.json({
       ok: true,
-      model: selectedModel,
+      engine: 'clova',
+      route: clovaRoute.label,
       parsed_models: parsed.models.length,
       synced: syncResult,
     });

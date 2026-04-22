@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 export default async function UploadsPage() {
   const sb = getSupabaseAdmin();
   const [{ data: vendors }, { data: sheets }] = await Promise.all([
-    sb.from('price_vendors').select('id, name, carrier, display_order').eq('active', true).order('display_order'),
+    sb.from('price_vendors').select('id, name, carrier, display_order, crop_spec').eq('active', true).order('display_order'),
     sb
       .from('price_vendor_quote_sheets')
       .select('id, effective_date, parse_status, uploaded_at, vendor:price_vendors(name, carrier)')

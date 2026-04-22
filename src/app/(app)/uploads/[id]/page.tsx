@@ -156,10 +156,7 @@ export default async function SheetReviewPage({
           <div className="mb-3 flex items-center justify-between gap-2">
             <h2 className="text-sm font-semibold">원본 이미지</h2>
             {sheet.image_url ? (
-              <div className="flex items-center gap-2">
-                <FullReparseButton sheetId={sheet.id} model="gemini" label="Gemini 3.1 Pro 전체 재파싱" color="emerald" />
-                <FullReparseButton sheetId={sheet.id} model="claude" label="Claude Sonnet 전체 재파싱" color="sky" />
-              </div>
+              <FullReparseButton sheetId={sheet.id} />
             ) : null}
           </div>
           {imageUrl ? (
