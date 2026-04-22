@@ -116,7 +116,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* Charts row */}
-      <div className="mb-4 grid gap-4" style={{ gridTemplateColumns: '2fr 1fr' }}>
+      <div className="mb-4 grid grid-cols-1 gap-4 lg:grid-cols-[2fr_1fr]">
         {/* 주간 추이 */}
         <div className="card">
           <div className="card-h">
@@ -208,7 +208,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* Bottom row */}
-      <div className="grid gap-4" style={{ gridTemplateColumns: '1.3fr 1fr' }}>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.3fr_1fr]">
         <div className="card">
           <div className="card-h">
             <h3>최근 업로드</h3>

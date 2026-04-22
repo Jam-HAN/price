@@ -89,33 +89,45 @@ input[type="checkbox"] { accent-color: var(--blue); }
     border: 1px solid var(--line);
   }
   .card-h {
-    padding: 16px 20px;
+    padding: 12px 14px;
     border-bottom: 1px solid var(--line);
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
+    gap: 10px;
+    flex-wrap: wrap;
   }
   .card-h h3 {
     margin: 0;
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 700;
     letter-spacing: -0.01em;
   }
-  .card-b { padding: 18px 20px; }
+  .card-b { padding: 14px; }
+  @media (min-width: 1024px) {
+    .card-h { padding: 16px 20px; gap: 12px; }
+    .card-h h3 { font-size: 15px; }
+    .card-b { padding: 18px 20px; }
+  }
 
   /* 페이지 헤더 */
   .page-header {
     display: flex;
     align-items: flex-end;
     justify-content: space-between;
-    margin-bottom: 18px;
+    margin-bottom: 14px;
+    gap: 10px;
+    flex-wrap: wrap;
   }
   .page-header h1 {
-    font-size: 26px;
+    font-size: 20px;
     letter-spacing: -0.02em;
     margin: 0;
     font-weight: 800;
+  }
+  @media (min-width: 1024px) {
+    .page-header { margin-bottom: 18px; }
+    .page-header h1 { font-size: 26px; }
   }
   .page-header .crumbs {
     font-size: 12px;
@@ -123,10 +135,11 @@ input[type="checkbox"] { accent-color: var(--blue); }
     margin-bottom: 6px;
   }
   .page-title {
-    font-size: 26px;
+    font-size: 20px;
     letter-spacing: -0.02em;
     font-weight: 800;
   }
+  @media (min-width: 1024px) { .page-title { font-size: 26px; } }
 
   /* 버튼 */
   .btn {
@@ -183,6 +196,8 @@ input[type="checkbox"] { accent-color: var(--blue); }
     background: var(--line-2);
     color: var(--ink-2);
     border: 1px solid var(--line);
+    white-space: nowrap;
+    flex-shrink: 0;
   }
   .chip .dot {
     width: 6px;
@@ -212,6 +227,8 @@ input[type="checkbox"] { accent-color: var(--blue); }
     border-radius: 99px;
     font-size: 12px;
     font-weight: 700;
+    white-space: nowrap;
+    flex-shrink: 0;
   }
   .carrier.skt { background: var(--skt-bg); color: var(--skt-fg); }
   .carrier.kt { background: var(--kt-bg); color: var(--kt-fg); }
@@ -341,9 +358,20 @@ input[type="checkbox"] { accent-color: var(--blue); }
   .t { width: 100%; border-collapse: separate; border-spacing: 0; }
   .t th, .t td {
     text-align: left;
-    padding: 10px 14px;
-    font-size: 13px;
+    padding: 8px 10px;
+    font-size: 12.5px;
     border-bottom: 1px solid var(--line-2);
+    white-space: nowrap;
+  }
+  @media (min-width: 1024px) {
+    .t th, .t td { padding: 10px 14px; font-size: 13px; }
+  }
+  /* 테이블이 좁은 뷰포트에서 잘리지 않도록 .card > table 은 스크롤 허용 */
+  .card > .t,
+  .card > table.t {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
   .t th {
     font-weight: 600;
