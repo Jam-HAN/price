@@ -115,32 +115,35 @@ export async function syncSheetToNormalized(sheetId: string) {
   const dedupedQuotes = Array.from(quoteMap.values());
   const dedupedCarrierSubsidies = Array.from(subsidyMap.values());
 
-  await sb.from('price_vendor_quotes').delete().eq('sheet_id', sheetId);
-  await sb.from('price_vendor_policies').delete().eq('sheet_id', sheetId);
+  // 트랜잭션 내에서 기존 quotes/policies 교체 — 중간 실패 시 롤백되어 데이터 증발 방지
+  const policyRows = (raw.policies ?? []).map((p, i) => ({
+    category: p.category,
+    name: p.name,
+    amount_krw: p.amount_krw ?? null,
+    raw_text: p.conditions_text ?? null,
+    display_order: i,
+  }));
+  const quoteRows = dedupedQuotes.map((q) => ({
+    device_id: q.device_id,
+    plan_tier_id: q.plan_tier_id,
+    contract_type: q.contract_type,
+    activation_type: q.activation_type,
+    amount_krw: q.amount_krw,
+  }));
+  const { error: rpcErr } = await sb.rpc('price_sync_replace_sheet', {
+    p_sheet_id: sheetId,
+    p_quotes: quoteRows,
+    p_policies: policyRows,
+  });
+  if (rpcErr) throw new Error(`sync_replace: ${rpcErr.message}`);
 
-  if (dedupedQuotes.length) {
-    const { error } = await sb.from('price_vendor_quotes').insert(dedupedQuotes);
-    if (error) throw new Error(`quotes insert: ${error.message}`);
-  }
-  // 공통지원금은 carrier 레벨이라 upsert (최신 시트가 덮어씀)
+  // 공통지원금은 carrier 레벨이라 여러 시트가 덮어쓰기 (RPC 밖에서 upsert)
   if (dedupedCarrierSubsidies.length) {
     const rows = dedupedCarrierSubsidies.map((r) => ({ ...r, updated_at: new Date().toISOString() }));
     const { error } = await sb
       .from('price_carrier_subsidies')
       .upsert(rows, { onConflict: 'carrier,device_id,plan_tier_id' });
     if (error) throw new Error(`carrier_subsidies upsert: ${error.message}`);
-  }
-  if (raw.policies?.length) {
-    const policyRows = raw.policies.map((p, i) => ({
-      sheet_id: sheetId,
-      category: p.category,
-      name: p.name,
-      amount_krw: p.amount_krw ?? null,
-      raw_text: p.conditions_text ?? null,
-      display_order: i,
-    }));
-    const { error } = await sb.from('price_vendor_policies').insert(policyRows);
-    if (error) throw new Error(`policies insert: ${error.message}`);
   }
 
   // 공통지원금 단위 자동 보정(기존 vendor_subsidies 기준 — 신규 구조에서는 no-op 가능)

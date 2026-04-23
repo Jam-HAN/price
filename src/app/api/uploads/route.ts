@@ -84,7 +84,7 @@ async function handle(req: Request) {
   const sb = getSupabaseAdmin();
   const { data: vendor, error: vErr } = await sb
     .from('price_vendors')
-    .select('id, name, carrier, crop_spec')
+    .select('id, name, carrier, crop_spec, parser_key')
     .eq('id', vendorId)
     .single();
   if (vErr || !vendor) {
@@ -143,9 +143,9 @@ async function handle(req: Request) {
 
   // 동기 파싱 (긴 이미지는 최대 ~1분 소요)
   try {
-    const clovaRoute = resolveClovaParser(vendor.name);
+    const clovaRoute = resolveClovaParser(vendor.parser_key);
     if (!clovaRoute) {
-      throw new Error(`CLOVA 파서 미등록 거래처: ${vendor.name}`);
+      throw new Error(`CLOVA 파서 미등록 거래처: ${vendor.name} (parser_key=${vendor.parser_key ?? 'null'})`);
     }
 
     const imageBytes = await downloadSheet(path);

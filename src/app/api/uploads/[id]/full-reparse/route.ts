@@ -26,17 +26,17 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     const sb = getSupabaseAdmin();
     const { data: sheet, error } = await sb
       .from('price_vendor_quote_sheets')
-      .select('id, vendor_id, image_url, vendor:price_vendors(name, carrier, crop_spec)')
+      .select('id, vendor_id, image_url, vendor:price_vendors(name, carrier, crop_spec, parser_key)')
       .eq('id', id)
       .single();
     if (error || !sheet) return NextResponse.json({ error: 'sheet 조회 실패' }, { status: 404 });
     const vendor = Array.isArray(sheet.vendor) ? sheet.vendor[0] : sheet.vendor;
     if (!sheet.image_url) return NextResponse.json({ error: '원본 이미지 없음' }, { status: 400 });
 
-    const clovaRoute = resolveClovaParser(vendor.name);
+    const clovaRoute = resolveClovaParser(vendor.parser_key);
     if (!clovaRoute) {
       return NextResponse.json(
-        { error: `CLOVA 파서 미등록 거래처: ${vendor.name}` },
+        { error: `CLOVA 파서 미등록 거래처: ${vendor.name} (parser_key=${vendor.parser_key ?? 'null'})` },
         { status: 400 },
       );
     }
