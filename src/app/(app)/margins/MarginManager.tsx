@@ -14,6 +14,24 @@ type Margin = {
 };
 type Device = { id: string; model_code: string; nickname: string; series: string | null };
 
+const SERIES_LABEL: Record<string, string> = {
+  galaxyS26: '갤럭시 S26',
+  galaxyS25: '갤럭시 S25',
+  fold7: 'Z 폴드7',
+  flip7: 'Z 플립7',
+  fold6: 'Z 폴드6',
+  flip6: 'Z 플립6',
+  galaxyEtc: '갤럭시 A/M',
+  iphone17: '아이폰 17',
+  iphoneAir: '아이폰 AIR',
+  iphone16: '아이폰 16',
+  iphone15: '아이폰 15',
+  tablet: '태블릿',
+  wearable: '워치·링',
+  misc: '기타',
+};
+const seriesLabel = (s: string) => SERIES_LABEL[s] ?? s;
+
 export function MarginManager({
   margins,
   devices,
@@ -34,6 +52,7 @@ export function MarginManager({
   const [newSeries, setNewSeries] = useState(seriesList[0] ?? '');
   const [newDevice, setNewDevice] = useState(devices[0]?.id ?? '');
   const [newAmount, setNewAmount] = useState('');
+  const [formError, setFormError] = useState<string | null>(null);
 
   const deviceById = new Map(devices.map((d) => [d.id, d]));
 
@@ -50,8 +69,12 @@ export function MarginManager({
   }
 
   async function addNew() {
+    setFormError(null);
     const n = Number(newAmount);
-    if (!Number.isFinite(n)) return alert('숫자 입력');
+    if (!newAmount || !Number.isFinite(n)) {
+      setFormError('마진 금액은 숫자로 입력하세요');
+      return;
+    }
     start(async () => {
       try {
         await upsertMargin({
@@ -63,7 +86,7 @@ export function MarginManager({
         setNewAmount('');
         router.refresh();
       } catch (e) {
-        alert(e instanceof Error ? e.message : String(e));
+        setFormError(e instanceof Error ? e.message : String(e));
       }
     });
   }
@@ -98,7 +121,7 @@ export function MarginManager({
             <tbody>
               {seriesMargins.map((m) => (
                 <tr key={m.id} className="border-t border-zinc-100">
-                  <td className="py-1 font-mono">{m.series}</td>
+                  <td className="py-1">{m.series ? seriesLabel(m.series) : '—'} <span className="ml-1 font-mono text-zinc-400">({m.series})</span></td>
                   <td className="text-right">
                     <AmountEditor value={m.margin_krw} onSave={(v) => saveAmount(m, v)} pending={pending} />
                   </td>
@@ -173,7 +196,7 @@ export function MarginManager({
               <span className="text-zinc-500">시리즈</span>
               <select value={newSeries} onChange={(e) => setNewSeries(e.target.value)}
                 className="rounded border border-zinc-300 bg-white px-2 py-1.5">
-                {seriesList.map((s) => <option key={s} value={s}>{s}</option>)}
+                {seriesList.map((s) => <option key={s} value={s}>{seriesLabel(s)}</option>)}
               </select>
             </label>
           ) : (
@@ -195,6 +218,9 @@ export function MarginManager({
             추가
           </button>
         </div>
+        {formError ? (
+          <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{formError}</div>
+        ) : null}
       </section>
     </div>
   );

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useDropzone } from 'react-dropzone';
 
 type CropSpec = { yRatio0: number; yRatio1: number; targetWidth: number };
 type Vendor = {
@@ -87,6 +88,17 @@ export function UploadForm({ vendors }: { vendors: Vendor[] }) {
     setPreview(f ? URL.createObjectURL(f) : null);
   }
 
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    accept: {
+      'image/png': ['.png'],
+      'image/jpeg': ['.jpg', '.jpeg'],
+      'image/webp': ['.webp'],
+    },
+    maxSize: 20 * 1024 * 1024,
+    multiple: false,
+    onDrop: (accepted) => onFile(accepted[0] ?? null),
+  });
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!file || !vendorId) return;
@@ -142,18 +154,35 @@ export function UploadForm({ vendors }: { vendors: Vendor[] }) {
         </label>
       </div>
 
-      <label className="block">
-        <span className="text-xs text-zinc-600">단가표 이미지 (PNG/JPG/WebP, 20MB 이하)</span>
-        <div className="mt-2 rounded-xl border-2 border-dashed border-zinc-300 bg-zinc-50 p-6 text-center text-sm text-zinc-500">
-          <input
-            type="file"
-            accept="image/png,image/jpeg,image/webp"
-            onChange={(e) => onFile(e.target.files?.[0] ?? null)}
-            className="block w-full text-sm"
-          />
-          {file ? <p className="mt-2 text-xs text-zinc-600">{file.name} · {(file.size / 1024 / 1024).toFixed(2)} MB</p> : null}
+      <div>
+        <div className="text-xs text-zinc-600">단가표 이미지 (PNG/JPG/WebP, 20MB 이하)</div>
+        <div
+          {...getRootProps()}
+          className={
+            `mt-2 cursor-pointer rounded-xl border-2 border-dashed p-8 text-center text-sm transition ` +
+            (isDragActive
+              ? 'border-emerald-400 bg-emerald-50 text-emerald-700'
+              : 'border-zinc-300 bg-zinc-50 text-zinc-500 hover:border-zinc-400 hover:bg-zinc-100')
+          }
+        >
+          <input {...getInputProps()} />
+          {file ? (
+            <div>
+              <div className="text-sm font-medium text-zinc-800">{file.name}</div>
+              <div className="mt-1 text-xs text-zinc-500">
+                {(file.size / 1024 / 1024).toFixed(2)} MB · 다른 파일을 올리려면 여기를 클릭하거나 끌어다 놓으세요
+              </div>
+            </div>
+          ) : isDragActive ? (
+            <div>파일을 여기에 놓으세요</div>
+          ) : (
+            <div>
+              <div>클릭하거나 파일을 끌어다 놓으세요</div>
+              <div className="mt-1 text-xs text-zinc-400">PNG · JPG · WebP (최대 20MB)</div>
+            </div>
+          )}
         </div>
-      </label>
+      </div>
 
       {preview ? (
         <CropEditor

@@ -3,6 +3,7 @@
 import { useState, useRef, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { formatMan } from '@/lib/fmt';
+import { useConfirmDialog } from '@/components/ConfirmDialog';
 import { createDevice, updateDevice, deleteDevice } from './actions';
 
 type Device = {
@@ -23,9 +24,16 @@ export function DeviceEditList({ devices }: { devices: Device[] }) {
   const router = useRouter();
   const [editing, setEditing] = useState<Device | null>(null);
   const [, start] = useTransition();
+  const [confirm, dialog] = useConfirmDialog();
 
   async function onDelete(d: Device) {
-    if (!confirm(`${d.nickname} 삭제할까요?`)) return;
+    const ok = await confirm({
+      title: `${d.nickname} 삭제할까요?`,
+      description: `${d.model_code} 모델이 삭제됩니다. 관련 단가표 데이터가 있으면 삭제가 실패할 수 있습니다.`,
+      confirmLabel: '삭제',
+      tone: 'danger',
+    });
+    if (!ok) return;
     const fd = new FormData();
     fd.set('id', d.id);
     start(async () => {
@@ -36,6 +44,7 @@ export function DeviceEditList({ devices }: { devices: Device[] }) {
 
   return (
     <>
+      {dialog}
       {/* 신규 추가 */}
       <section className="rounded-xl border border-zinc-200 bg-white p-4">
         <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-zinc-500">신규 추가</div>

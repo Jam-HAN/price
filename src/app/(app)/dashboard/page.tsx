@@ -97,21 +97,21 @@ export default async function DashboardPage() {
           pillTone="lime"
           label="이번 주 업로드"
           value={weekTotal}
-          delta={`${Math.round((weekTotal / 42) * 100)}% 커버리지`}
+          delta={`${(vendors?.length ?? 0) * 7}건 중 ${weekTotal}건`}
         />
         <StatCard
           pill="MODELS"
           pillTone="pink"
-          label="활성 모델"
+          label="판매중 모델"
           value={activeDeviceCount ?? 0}
-          delta="마스터 등록"
+          delta="모델 메뉴에서 관리"
         />
         <StatCard
           pill="FIXES"
           pillTone="yellow"
-          label="누적 정답 쌍"
-          value={(corrections ?? []).length >= 8 ? '+' + 8 : (corrections ?? []).length}
-          delta="파인튜닝 데이터"
+          label="최근 수정"
+          value={(corrections ?? []).length}
+          delta="검수 교정 내역"
         />
       </div>
 

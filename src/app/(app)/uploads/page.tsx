@@ -44,7 +44,7 @@ export default async function UploadsPage() {
               <th>통신사</th>
               <th>상태</th>
               <th>업로드</th>
-              <th className="right">액션</th>
+              <th>액션</th>
             </tr>
           </thead>
           <tbody>
@@ -59,18 +59,18 @@ export default async function UploadsPage() {
               const vendor = Array.isArray(s.vendor) ? s.vendor[0] : s.vendor;
               return (
                 <tr key={s.id}>
-                  <td className="mono">{s.effective_date}</td>
-                  <td>
+                  <td className="mono text-center">{s.effective_date}</td>
+                  <td className="text-center">
                     <b>{vendor?.name}</b>
                   </td>
-                  <td>{vendor ? <CarrierPill id={vendor.carrier as CarrierKey} /> : null}</td>
-                  <td>
+                  <td className="text-center">{vendor ? <CarrierPill id={vendor.carrier as CarrierKey} /> : null}</td>
+                  <td className="text-center">
                     <StatusChip status={s.parse_status} />
                   </td>
-                  <td className="text-[12px]" style={{ color: 'var(--ink-3)' }}>
+                  <td className="text-center text-[12px]" style={{ color: 'var(--ink-3)' }}>
                     {new Date(s.uploaded_at).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric' })}
                   </td>
-                  <td className="right">
+                  <td className="text-center">
                     <Link href={`/uploads/${s.id}`} className="btn btn-sm btn-ghost">
                       {s.parse_status === 'confirmed' ? '상세' : '검수 →'}
                     </Link>
