@@ -32,14 +32,33 @@ const EXT_MAP: Record<string, string> = {
   'image/webp': 'webp',
 };
 
+const MAX_FILE_BYTES = 20 * 1024 * 1024; // 20MB 서버측 하드 상한
+const IMAGE_MAGIC: Array<{ mime: string; magic: number[] }> = [
+  { mime: 'image/png', magic: [0x89, 0x50, 0x4e, 0x47] },
+  { mime: 'image/jpeg', magic: [0xff, 0xd8, 0xff] },
+  { mime: 'image/webp', magic: [0x52, 0x49, 0x46, 0x46] }, // 'RIFF' (이후 'WEBP' 추가 확인)
+];
+
+function verifyImageMagic(bytes: Buffer, claimedMime: string): boolean {
+  const entry = IMAGE_MAGIC.find((m) => m.mime === claimedMime);
+  if (!entry) return false;
+  for (let i = 0; i < entry.magic.length; i++) {
+    if (bytes[i] !== entry.magic[i]) return false;
+  }
+  if (claimedMime === 'image/webp') {
+    // WEBP는 8~11 바이트가 'WEBP' (0x57 0x45 0x42 0x50)
+    return bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50;
+  }
+  return true;
+}
+
 export async function POST(req: Request) {
   try {
     return await handle(req);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    const stack = e instanceof Error ? e.stack : undefined;
-    console.error('[api/uploads] fatal', msg, stack);
-    return NextResponse.json({ error: msg, where: 'outer', stack }, { status: 500 });
+    console.error('[api/uploads] fatal', msg, e instanceof Error ? e.stack : undefined);
+    return NextResponse.json({ error: '업로드 처리 중 오류가 발생했습니다' }, { status: 500 });
   }
 }
 
@@ -58,6 +77,9 @@ async function handle(req: Request) {
   if (!ext) {
     return NextResponse.json({ error: `지원하지 않는 이미지 타입: ${file.type}` }, { status: 400 });
   }
+  if (file.size > MAX_FILE_BYTES) {
+    return NextResponse.json({ error: `파일 크기 상한(20MB) 초과: ${(file.size / 1024 / 1024).toFixed(1)}MB` }, { status: 413 });
+  }
 
   const sb = getSupabaseAdmin();
   const { data: vendor, error: vErr } = await sb
@@ -70,6 +92,9 @@ async function handle(req: Request) {
   }
 
   const bytes = Buffer.from(await file.arrayBuffer());
+  if (!verifyImageMagic(bytes, file.type)) {
+    return NextResponse.json({ error: '이미지 헤더 검증 실패 (확장자 위조 의심)' }, { status: 400 });
+  }
   const { path } = await uploadSheetImage({
     vendorId: vendor.id,
     effectiveDate,

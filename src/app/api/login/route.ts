@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-
-const GATE_COOKIE = 'dbp_price_gate';
+import { GATE_COOKIE, GATE_MAX_AGE_SEC, signGateToken } from '@/lib/gate';
 
 export async function POST(req: Request) {
   const expected = process.env.INTERNAL_PASSWORD;
@@ -19,14 +18,15 @@ export async function POST(req: Request) {
     return NextResponse.redirect(url, { status: 303 });
   }
 
+  const token = await signGateToken();
   const target = next.startsWith('/') ? next : '/';
   const res = NextResponse.redirect(new URL(target, req.url), { status: 303 });
-  res.cookies.set(GATE_COOKIE, expected, {
+  res.cookies.set(GATE_COOKIE, token, {
     httpOnly: true,
     sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',
     path: '/',
-    maxAge: 60 * 60 * 24 * 30,
+    maxAge: GATE_MAX_AGE_SEC,
   });
   return res;
 }

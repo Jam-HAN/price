@@ -20,7 +20,7 @@ async function login(page: Page) {
 async function snap(page: Page, path: string, file: string) {
   await page.goto(`${BASE}${path}`, { waitUntil: 'networkidle', timeout: 20_000 }).catch(() => {});
   await page.waitForTimeout(500);
-  await page.screenshot({ path: `${OUT}/${file}.png`, fullPage: false });
+  await page.screenshot({ path: `${OUT}/${file}.png`, fullPage: true });
   // Measure header position
   const headerBox = await page.locator('header').first().boundingBox().catch(() => null);
   const firstContentBox = await page.locator('header').first().evaluateHandle(
