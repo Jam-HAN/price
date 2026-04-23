@@ -15,9 +15,28 @@ export function normalizeDeviceCode(raw: string): string {
   if (!raw) return raw;
   const cleaned = raw.toUpperCase().replace(/\s+/g, '');
 
-  // Samsung 패턴: (SM-)? [A-Z]\d{3}(선택적으로 N·K·연결자) + optional storage
+  // 1) iPhone 패턴: IP{family}[P|PM|E]?_{storage}
+  //    OCR 오타/변형 보정: 256GB→256G, 256GG→256G, 1TG→1T, 1TB→1T
+  const ip = cleaned.match(/^IP(\d+)(P|PM|PL|E)?[_-]?(\d+)(?:TG|GG|GB|TB|G|T)?$/);
+  if (ip) {
+    const family = ip[1];
+    const suffix = ip[2] ?? '';
+    const storageNum = ip[3];
+    // "1" or "2" → T 단위 (1T/2T), 그 외 → G 단위
+    const storageUnit = Number(storageNum) <= 2 ? 'T' : 'G';
+    return `IP${family}${suffix}_${storageNum}${storageUnit}`;
+  }
+  // IP Air 계열: IPA_256G / IPA_1T
+  const ipa = cleaned.match(/^IPA[_-]?(\d+)(?:TG|GG|GB|TB|G|T)?$/);
+  if (ipa) {
+    const storageNum = ipa[1];
+    const storageUnit = Number(storageNum) <= 2 ? 'T' : 'G';
+    return `IPA_${storageNum}${storageUnit}`;
+  }
+
+  // 2) Samsung 패턴: (SM-)? [A-Z]\d{3}(선택적으로 N/K/S 접미사 — SKT는 S 쓰는 경우 있음) + optional storage
   // family는 반드시 3자리 숫자 (S942, F766, A366 등) — greedy overmatch 방지
-  const m = cleaned.match(/^(?:SM-)?([A-Z]\d{3})N?K?[_-]?(\d+(?:G|T)?B?)?$/);
+  const m = cleaned.match(/^(?:SM-)?([A-Z]\d{3})[NKS]?[_-]?(\d+(?:G|T)?B?)?$/);
   if (!m) return raw; // 인식 실패 → 원본 유지
 
   const family = m[1];
