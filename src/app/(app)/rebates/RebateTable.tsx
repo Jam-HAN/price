@@ -31,6 +31,8 @@ export function RebateTable({
   latestSheetByVendor: Record<string, string>;
 }) {
   const [activeVendorId, setActiveVendorId] = useState(vendors[0]?.id ?? '');
+  const [contract, setContract] = useState<'common' | 'select'>('common');
+  const [act, setAct] = useState<'new010' | 'mnp' | 'change'>('mnp');
   const activeSheetId = latestSheetByVendor[activeVendorId] ?? '';
 
   // 해당 거래처 리베이트만 필터 + Map 구성 (거래처 전환 시에만 재계산)
@@ -43,19 +45,25 @@ export function RebateTable({
     return m;
   }, [rebates, activeSheetId]);
 
+  const segBtn = (active: boolean) =>
+    `rounded-full px-3 py-1 text-xs transition ${active ? 'bg-zinc-900 text-white' : 'bg-white border border-zinc-200 text-zinc-600 hover:bg-zinc-100'}`;
+
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-2 text-sm">
-        <span className="text-zinc-500">{carrier} 거래처:</span>
+      <div className="flex flex-wrap items-center gap-2 text-sm">
+        <span className="text-zinc-500">거래처</span>
         {vendors.map((v) => (
-          <button
-            key={v.id}
-            onClick={() => setActiveVendorId(v.id)}
-            className={`rounded-full px-3 py-1 text-xs ${activeVendorId === v.id ? 'bg-zinc-900 text-white' : 'bg-white border border-zinc-200 text-zinc-600 hover:bg-zinc-100'}`}
-          >
+          <button key={v.id} onClick={() => setActiveVendorId(v.id)} className={segBtn(activeVendorId === v.id)}>
             {v.name}
           </button>
         ))}
+        <span className="ml-4 text-zinc-500">약정</span>
+        <button onClick={() => setContract('common')} className={segBtn(contract === 'common')}>공통</button>
+        <button onClick={() => setContract('select')} className={segBtn(contract === 'select')}>선약</button>
+        <span className="ml-4 text-zinc-500">구분</span>
+        <button onClick={() => setAct('mnp')} className={segBtn(act === 'mnp')}>MNP</button>
+        <button onClick={() => setAct('new010')} className={segBtn(act === 'new010')}>010</button>
+        <button onClick={() => setAct('change')} className={segBtn(act === 'change')}>기변</button>
         {!activeSheetId && (
           <span className="ml-2 text-xs text-red-500">※ {vendors.find((v) => v.id === activeVendorId)?.name}: 확정 시트 없음</span>
         )}
@@ -65,16 +73,11 @@ export function RebateTable({
         <table className="w-full text-xs">
           <thead className="bg-zinc-50 text-zinc-500">
             <tr>
-              <th rowSpan={2} className="sticky left-0 bg-zinc-50 px-3 py-2 text-left">모델</th>
+              <th className="sticky left-0 bg-zinc-50 px-3 py-2 text-left">모델</th>
               {tiers.map((t) => (
-                <th key={t.id} colSpan={6} className="border-l border-zinc-200 px-2 py-1 text-center">
+                <th key={t.id} className="border-l border-zinc-200 px-3 py-2 text-right text-[11px] font-bold">
                   {t.code}
                 </th>
-              ))}
-            </tr>
-            <tr>
-              {tiers.map((t) => (
-                <SubHeaders key={t.id} />
               ))}
             </tr>
           </thead>
@@ -86,12 +89,14 @@ export function RebateTable({
                   <div className="font-mono text-[10px] text-zinc-400">{d.model_code}</div>
                 </td>
                 {tiers.map((t) => (
-                  <TierCells
+                  <EditCell
                     key={t.id}
+                    sheetId={activeSheetId}
                     deviceId={d.id}
                     tierId={t.id}
-                    sheetId={activeSheetId}
-                    rebateMap={rebateMap}
+                    ct={contract}
+                    at={act}
+                    value={rebateMap.get(`${d.id}|${t.id}|${contract}|${act}`) ?? null}
                   />
                 ))}
               </tr>
@@ -100,44 +105,6 @@ export function RebateTable({
         </table>
       </div>
     </div>
-  );
-}
-
-function SubHeaders() {
-  return (
-    <>
-      <th className="border-l border-zinc-200 px-1 py-1 text-[10px] font-normal">공·010</th>
-      <th className="px-1 py-1 text-[10px] font-normal">공·MNP</th>
-      <th className="px-1 py-1 text-[10px] font-normal">공·기변</th>
-      <th className="px-1 py-1 text-[10px] font-normal text-zinc-400">선·010</th>
-      <th className="px-1 py-1 text-[10px] font-normal text-zinc-400">선·MNP</th>
-      <th className="px-1 py-1 text-[10px] font-normal text-zinc-400">선·기변</th>
-    </>
-  );
-}
-
-function TierCells({
-  deviceId,
-  tierId,
-  sheetId,
-  rebateMap,
-}: {
-  deviceId: string;
-  tierId: string;
-  sheetId: string;
-  rebateMap: Map<string, number>;
-}) {
-  const key = (ct: 'common' | 'select', at: 'new010' | 'mnp' | 'change') =>
-    `${deviceId}|${tierId}|${ct}|${at}`;
-  return (
-    <>
-      <EditCell sheetId={sheetId} deviceId={deviceId} tierId={tierId} ct="common" at="new010" value={rebateMap.get(key('common','new010')) ?? null} />
-      <EditCell sheetId={sheetId} deviceId={deviceId} tierId={tierId} ct="common" at="mnp"    value={rebateMap.get(key('common','mnp')) ?? null} />
-      <EditCell sheetId={sheetId} deviceId={deviceId} tierId={tierId} ct="common" at="change" value={rebateMap.get(key('common','change')) ?? null} />
-      <EditCell sheetId={sheetId} deviceId={deviceId} tierId={tierId} ct="select" at="new010" value={rebateMap.get(key('select','new010')) ?? null} dim />
-      <EditCell sheetId={sheetId} deviceId={deviceId} tierId={tierId} ct="select" at="mnp"    value={rebateMap.get(key('select','mnp')) ?? null} dim />
-      <EditCell sheetId={sheetId} deviceId={deviceId} tierId={tierId} ct="select" at="change" value={rebateMap.get(key('select','change')) ?? null} dim />
-    </>
   );
 }
 

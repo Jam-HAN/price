@@ -4,18 +4,23 @@ import { PageHeader, SegmentedLink, type CarrierKey } from '@/components/ui';
 
 export const dynamic = 'force-dynamic';
 
-type SearchParams = Promise<{ carrier?: 'SKT' | 'KT' | 'LGU+'; contract?: 'common' | 'select' }>;
+type Activation = 'new010' | 'mnp' | 'change';
+type SearchParams = Promise<{
+  carrier?: 'SKT' | 'KT' | 'LGU+';
+  contract?: 'common' | 'select';
+  act?: Activation;
+}>;
 
 const CARRIERS = ['SKT', 'KT', 'LGU+'] as const;
 const CONTRACTS = [
   { v: 'common', label: '공통지원금' },
   { v: 'select', label: '선택약정' },
 ] as const;
-const ACTIVATIONS = [
-  { v: 'new010', label: '010' },
+const ACTIVATIONS: { v: Activation; label: string }[] = [
   { v: 'mnp', label: 'MNP' },
+  { v: 'new010', label: '010' },
   { v: 'change', label: '기변' },
-] as const;
+];
 
 type NetRow = {
   device_id: string;
@@ -37,6 +42,7 @@ export default async function MatrixPage({ searchParams }: { searchParams: Searc
   const sp = await searchParams;
   const carrier = sp.carrier ?? 'SKT';
   const contract = sp.contract ?? 'common';
+  const act: Activation = sp.act ?? 'mnp'; // 기본 MNP만 표시, 21 → 7컬럼
   const sb = getSupabaseAdmin();
 
   const [{ data: tiers }, { data: rows }, { data: deviceList }] = await Promise.all([
@@ -82,16 +88,21 @@ export default async function MatrixPage({ searchParams }: { searchParams: Searc
         crumbs={['대박통신', '가격', 'Net가']}
         title="Net가 매트릭스"
         actions={
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <SegmentedLink
               value={carrier}
               options={CARRIERS.map((c) => ({ v: c as CarrierKey, label: c }))}
-              hrefFor={(c) => `/matrix?carrier=${c}&contract=${contract}`}
+              hrefFor={(c) => `/matrix?carrier=${c}&contract=${contract}&act=${act}`}
             />
             <SegmentedLink
               value={contract}
               options={CONTRACTS.map((c) => ({ v: c.v, label: c.label }))}
-              hrefFor={(c) => `/matrix?carrier=${carrier}&contract=${c}`}
+              hrefFor={(c) => `/matrix?carrier=${carrier}&contract=${c}&act=${act}`}
+            />
+            <SegmentedLink
+              value={act}
+              options={ACTIVATIONS.map((a) => ({ v: a.v, label: a.label }))}
+              hrefFor={(a) => `/matrix?carrier=${carrier}&contract=${contract}&act=${a}`}
             />
           </div>
         }
@@ -103,14 +114,12 @@ export default async function MatrixPage({ searchParams }: { searchParams: Searc
             <thead>
               <tr>
                 <th
-                  rowSpan={2}
                   className="sticky left-0 px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider"
                   style={{ background: '#fafbff', color: 'var(--ink-3)', borderBottom: '1px solid var(--line)' }}
                 >
                   모델
                 </th>
                 <th
-                  rowSpan={2}
                   className="px-3 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider"
                   style={{ background: '#fafbff', color: 'var(--ink-3)', borderBottom: '1px solid var(--line)' }}
                 >
@@ -119,37 +128,18 @@ export default async function MatrixPage({ searchParams }: { searchParams: Searc
                 {tierCodes.map((code) => (
                   <th
                     key={code}
-                    colSpan={ACTIVATIONS.length}
-                    className="px-2 py-1.5 text-center text-[11px] font-bold uppercase tracking-wider"
-                    style={{ background: '#fafbff', color: 'var(--ink-3)', borderLeft: '1px solid var(--line)' }}
+                    className="px-3 py-2.5 text-right text-[11px] font-bold uppercase tracking-wider"
+                    style={{ background: '#fafbff', color: 'var(--ink-3)', borderBottom: '1px solid var(--line)', borderLeft: '1px solid var(--line)' }}
                   >
                     {code}
                   </th>
                 ))}
               </tr>
-              <tr>
-                {tierCodes.map((code) =>
-                  ACTIVATIONS.map((a) => (
-                    <th
-                      key={`${code}-${a.v}`}
-                      className="px-1.5 py-1.5 text-center text-[10px] font-normal"
-                      style={{
-                        background: '#fafbff',
-                        color: 'var(--ink-3)',
-                        borderBottom: '1px solid var(--line)',
-                        borderLeft: a.v === 'new010' ? '1px solid var(--line)' : 'none',
-                      }}
-                    >
-                      {a.label}
-                    </th>
-                  )),
-                )}
-              </tr>
             </thead>
             <tbody>
               {devices.length === 0 ? (
                 <tr>
-                  <td colSpan={2 + tierCodes.length * ACTIVATIONS.length} className="py-16 text-center" style={{ color: 'var(--ink-3)' }}>
+                  <td colSpan={2 + tierCodes.length} className="py-16 text-center" style={{ color: 'var(--ink-3)' }}>
                     데이터가 없습니다. 단가표 업로드 후 확인해주세요.
                   </td>
                 </tr>
@@ -165,16 +155,14 @@ export default async function MatrixPage({ searchParams }: { searchParams: Searc
                   <td className="mono px-3 py-2 text-right text-[12px]" style={{ color: 'var(--ink-3)' }}>
                     {formatMan(d.retail)}
                   </td>
-                  {tierCodes.map((code) =>
-                    ACTIVATIONS.map((a) => {
-                      const cell = cellBest.get(`${d.id}|${code}|${a.v}`);
-                      const leftBorder = a.v === 'new010' ? '1px solid var(--line)' : 'none';
+                  {tierCodes.map((code) => {
+                      const cell = cellBest.get(`${d.id}|${code}|${act}`);
                       if (!cell)
                         return (
                           <td
-                            key={`${code}-${a.v}`}
-                            className="px-1.5 py-2 text-center"
-                            style={{ color: 'var(--ink-3)', borderLeft: leftBorder }}
+                            key={code}
+                            className="px-3 py-2 text-center"
+                            style={{ color: 'var(--ink-3)', borderLeft: '1px solid var(--line)' }}
                           >
                             —
                           </td>
@@ -182,11 +170,11 @@ export default async function MatrixPage({ searchParams }: { searchParams: Searc
                       const neg = cell.price < 0;
                       return (
                         <td
-                          key={`${code}-${a.v}`}
+                          key={code}
                           title={`거래처: ${cell.vendor}`}
-                          className="mono px-1.5 py-2 text-right"
+                          className="mono px-3 py-2 text-right"
                           style={{
-                            borderLeft: leftBorder,
+                            borderLeft: '1px solid var(--line)',
                             color: neg ? 'var(--red)' : 'var(--ink)',
                             fontWeight: neg ? 700 : 500,
                           }}
@@ -194,8 +182,7 @@ export default async function MatrixPage({ searchParams }: { searchParams: Searc
                           {formatMan(cell.price)}
                         </td>
                       );
-                    }),
-                  )}
+                  })}
                 </tr>
               ))}
             </tbody>
