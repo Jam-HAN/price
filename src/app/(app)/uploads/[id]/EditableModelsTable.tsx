@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import type { SheetExtraction } from '@/lib/vision-schema';
 import type { CellFlag, CellField } from '@/lib/consistency';
 import { formatMan } from '@/lib/fmt';
-import { updateCellAction } from './cell-actions';
+import { updateCell } from './actions';
 
 type FlagMap = Record<string, CellFlag>; // key = model_code_raw|tier|field
 
@@ -215,7 +215,7 @@ function EditCell({
     }
     startTransition(async () => {
       try {
-        await updateCellAction({
+        await updateCell({
           sheet_id: sheetId,
           model_code_raw: modelCode,
           plan_tier_code: tierCode,

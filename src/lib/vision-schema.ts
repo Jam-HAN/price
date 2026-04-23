@@ -1,49 +1,62 @@
-import { z } from 'zod';
-
 /**
- * Claude Vision이 뽑아내는 단가표 구조.
- * 모든 금액은 **원(KRW) 단위**로 변환해서 출력. (이미지의 "천원/만원" 단위 표기는 파싱 프롬프트에서 설명)
+ * CLOVA OCR 파서가 반환하는 단가표 구조.
+ * 모든 금액은 **원(KRW) 단위**.
  */
 
-const TierQuote = z.object({
-  new010: z.number().nullable().describe('010 신규 단가(원). 음수 허용(페이백)'),
-  mnp: z.number().nullable().describe('MNP(번호이동) 단가(원)'),
-  change: z.number().nullable().describe('기변/보상/재가입 단가(원)'),
-});
+export type TierQuote = {
+  /** 010 신규 단가(원). 음수 허용(페이백) */
+  new010: number | null;
+  /** MNP(번호이동) 단가(원) */
+  mnp: number | null;
+  /** 기변/보상/재가입 단가(원) */
+  change: number | null;
+};
 
-const ModelTier = z.object({
-  plan_tier_code: z
-    .string()
-    .describe('내부 코드 요금제 구간. SKT=BASE|I_100|F_79|L_69|M_50|R_43|S_33, KT=T110|T100|SLIM14|T61|T37, LGU+=G115|G105|G95|G85|G69|G55|G33'),
-  subsidy_krw: z.number().nullable(),
-  common: TierQuote.nullable(),
-  select: TierQuote.nullable(),
-});
+export type ModelTier = {
+  /** 요금제 구간 코드. SKT=요금제붐업|I_100|F_79|L_69|M_50|R_43|S_33 등 */
+  plan_tier_code: string;
+  subsidy_krw: number | null;
+  common: TierQuote | null;
+  select: TierQuote | null;
+};
 
-const ParsedModel = z.object({
-  model_code_raw: z.string().describe('거래처가 쓰는 원본 코드 (예: SM-S942N_512G, UIP17-256, AIP17P_256)'),
-  nickname: z.string().describe('팻네임 (예: 갤럭시 S26, 아이폰17 256G)'),
-  storage: z.string().nullable().describe('용량 (예: 256G, 512G, 1TB). 없으면 null'),
-  retail_price_krw: z.number().nullable().describe('출고가 (원). 이미지가 천원 단위면 ×1000해서 저장. **이미지에 명시되지 않으면 반드시 null** (추측/기억으로 채우지 말 것)'),
-  is_new: z.boolean().describe('"(New)"이나 신규 표시 있으면 true'),
-  tiers: z.array(ModelTier),
-});
+export type ParsedModel = {
+  /** 거래처가 쓰는 원본 코드 */
+  model_code_raw: string;
+  /** 팻네임 */
+  nickname: string;
+  /** 용량 (256G, 512G, 1TB 등). 없으면 null */
+  storage: string | null;
+  /** 출고가(원). 이미지에 없으면 null */
+  retail_price_krw: number | null;
+  /** (New) 표시 여부 */
+  is_new: boolean;
+  tiers: ModelTier[];
+};
 
-const ParsedPolicy = z.object({
-  category: z.enum(['bonus_set', 'model_extra', 'combine', 'ott_addon', 'card', 'youth', 'senior', 'penalty', 'other']),
-  name: z.string(),
-  amount_krw: z.number().nullable(),
-  conditions_text: z.string().nullable(),
-});
+export type ParsedPolicy = {
+  category:
+    | 'bonus_set'
+    | 'model_extra'
+    | 'combine'
+    | 'ott_addon'
+    | 'card'
+    | 'youth'
+    | 'senior'
+    | 'penalty'
+    | 'other';
+  name: string;
+  amount_krw: number | null;
+  conditions_text: string | null;
+};
 
-export const SheetExtraction = z.object({
-  policy_round: z.string().nullable().describe('정책 차수 (예: "4-9차", "04월 09차", "ver.15")'),
-  effective_date: z.string().nullable().describe('적용 일자 YYYY-MM-DD. 연도 없으면 올해로 가정'),
-  effective_time: z.string().nullable().describe('적용 시각 (예: "00시 00분", "19시 00분")'),
-  models: z.array(ParsedModel),
-  policies: z.array(ParsedPolicy).describe('부가정책/추가지원/결합/OTT/카드/축소 등. 본인 있는 만큼만.'),
-});
-
-export type SheetExtraction = z.infer<typeof SheetExtraction>;
-export type ParsedModel = z.infer<typeof ParsedModel>;
-export type ModelTier = z.infer<typeof ModelTier>;
+export type SheetExtraction = {
+  /** 정책 차수 */
+  policy_round: string | null;
+  /** 적용 일자 YYYY-MM-DD */
+  effective_date: string | null;
+  /** 적용 시각 */
+  effective_time: string | null;
+  models: ParsedModel[];
+  policies: ParsedPolicy[];
+};

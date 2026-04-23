@@ -166,7 +166,6 @@ async function handle(req: Request) {
       timestamp: Date.now(),
       images: [clovaImg],
     });
-    console.log(`[uploads] CLOVA route=${clovaRoute.label} models=${parsed.models.length}`);
 
     await sb
       .from('price_vendor_quote_sheets')

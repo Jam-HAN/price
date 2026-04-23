@@ -8,13 +8,6 @@ export function formatKrw(n: number | string | null | undefined): string {
   return new Intl.NumberFormat('ko-KR').format(num);
 }
 
-export function formatManwon(n: number | string | null | undefined): string {
-  if (n === null || n === undefined || n === '') return '-';
-  const num = typeof n === 'string' ? Number(n) : n;
-  if (!Number.isFinite(num)) return '-';
-  return (num / 10_000).toFixed(num % 10_000 === 0 ? 0 : 1) + '만';
-}
-
 /**
  * 금액을 "##.#" 만원 단위 문자열로 포맷.
  * 규칙: 천원 미만은 내림(버림) — 예: 155,900원 → "15.5", 155,000원 → "15.5", 156,000원 → "15.6"

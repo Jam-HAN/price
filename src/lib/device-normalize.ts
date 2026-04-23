@@ -146,13 +146,6 @@ export function extractFamilyCode(raw: string): string | null {
   return null;
 }
 
-/** family code에서 시리즈 카테고리 찾기 */
-export function canonicalSeries(modelCode: string): string | null {
-  const fam = extractFamilyCode(modelCode);
-  if (!fam) return null;
-  return SAMSUNG_FAMILY_SERIES[fam] ?? null;
-}
-
 /**
  * model_code에서 표준 한글 제품명을 생성.
  * 엄격 매칭(SM-XXXN_YYYG) 우선, 실패 시 family만 인식하고 변형(KP/ZEM/MOM/자조) 접미사 보존.
@@ -198,13 +191,3 @@ export function canonicalCandidates(raw: string): string[] {
   return out;
 }
 
-/** 디바이스 2건이 동일 물리 모델인지 판단 (code + nickname + retail 10%내) */
-export function areSameDevice(
-  a: { model_code: string; nickname: string; retail_price_krw: number },
-  b: { model_code: string; nickname: string; retail_price_krw: number },
-): boolean {
-  const na = normalizeDeviceCode(a.model_code);
-  const nb = normalizeDeviceCode(b.model_code);
-  if (na === nb && na !== a.model_code) return true; // 정규화 후 일치
-  return false;
-}
