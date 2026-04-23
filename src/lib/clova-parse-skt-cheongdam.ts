@@ -76,7 +76,7 @@ export function parseClovaCheongdam(resp: ClovaResponse): SheetExtraction {
 
   for (let r = 0; r <= maxRow; r++) {
     const modelCode = (grid.get(`${r}|0`) ?? '').trim();
-    if (!/^(SM-|UIP|UAW|AT-|IP\d|AIP)/.test(modelCode)) continue;
+    if (!/^(SM-|UIP|UAW|AT-|IP[A\d]|AIP)/.test(modelCode)) continue;
 
     const nickname = (grid.get(`${r}|1`) ?? '').trim();
     const retailDigits = (grid.get(`${r}|2`) ?? '').replace(/\D/g, '');

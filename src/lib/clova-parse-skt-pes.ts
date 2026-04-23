@@ -77,7 +77,7 @@ export function parseClovaPes(resp: ClovaResponse): SheetExtraction {
 
   for (let r = 0; r <= maxRow; r++) {
     const modelCode = (grid.get(`${r}|1`) ?? '').trim();
-    if (!/^(SM-|UIP|UAW|AT-|IP\d|AIP)/.test(modelCode)) continue;
+    if (!/^(SM-|UIP|UAW|AT-|IP[A\d]|AIP)/.test(modelCode)) continue;
 
     const nickname = (grid.get(`${r}|2`) ?? '').trim();
     // 출고가: "1,254.0" (천단위) → 1,254,000원. "1.254.0" 오인식도 수용 (숫자만 추출 후 × 1000)
