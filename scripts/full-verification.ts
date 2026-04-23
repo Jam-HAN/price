@@ -43,7 +43,7 @@ async function sqlQuery(query: string) {
   return (await res.json()) as unknown[];
 }
 
-async function loginAndGetJwt(): Promise<{ cookie: string; browser: ReturnType<typeof chromium['launch']>; page: Page }> {
+async function loginAndGetJwt(): Promise<{ cookie: string; browser: Awaited<ReturnType<typeof chromium['launch']>>; page: Page }> {
   const browser = await chromium.launch({ headless: true });
   const ctx = await browser.newContext({ ignoreHTTPSErrors: true });
   const page = await ctx.newPage();
@@ -53,7 +53,7 @@ async function loginAndGetJwt(): Promise<{ cookie: string; browser: ReturnType<t
   await page.waitForURL((u) => !u.pathname.startsWith('/login'));
   const cookies = await ctx.cookies();
   const gate = cookies.find((c) => c.name === 'dbp_price_gate');
-  return { cookie: `dbp_price_gate=${gate?.value}`, browser: browser as unknown as ReturnType<typeof chromium['launch']>, page };
+  return { cookie: `dbp_price_gate=${gate?.value}`, browser, page };
 }
 
 async function main() {
