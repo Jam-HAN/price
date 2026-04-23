@@ -166,7 +166,10 @@ async function handle(req: Request) {
       synced: syncResult,
     });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
+    const rawMsg = e instanceof Error ? e.message : String(e);
+    const msg = /DEADLINE_EXCEEDED/i.test(rawMsg)
+      ? `${rawMsg}\n\nCLOVA가 15초 안에 표를 읽지 못했습니다. 이미지 밀도가 너무 높습니다. 크롭 영역을 더 좁히거나(모델표만 남기기) 업로드 폼에서 '가로' 값을 1000~1300px로 낮춰 재시도하세요.`
+      : rawMsg;
     await sb
       .from('price_vendor_quote_sheets')
       .update({ parse_status: 'error', error_message: msg })
