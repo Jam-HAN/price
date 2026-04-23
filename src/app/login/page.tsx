@@ -1,4 +1,4 @@
-import { BrandMark } from '@/components/BrandMark';
+import Logo from '@/components/Logo';
 
 type SearchParams = Promise<{ next?: string; error?: string }>;
 
@@ -9,11 +9,11 @@ export default async function LoginPage({ searchParams }: { searchParams: Search
       <form
         method="post"
         action="/api/login"
-        className="w-full max-w-sm space-y-4 rounded-2xl border border-zinc-200 bg-white p-8 shadow-sm"
+        className="w-full max-w-sm space-y-5 rounded-2xl border border-zinc-200 bg-white p-8 shadow-sm"
       >
-        <div className="flex items-center gap-3">
-          <BrandMark size={44} />
-          <div>
+        <div className="flex flex-col items-center gap-2">
+          <Logo className="h-12 w-12 text-zinc-900" />
+          <div className="text-center">
             <h1 className="text-xl font-bold tracking-tight">대박통신</h1>
             <p className="text-sm text-zinc-500">단가표 시스템</p>
           </div>

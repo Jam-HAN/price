@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { BrandMark } from './BrandMark';
+import Logo from './Logo';
 
 type NavItem =
   | { type: 'section'; label: string }
@@ -29,10 +29,8 @@ export function Sidebar() {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
 
-  // 경로 이동 시 모바일 drawer 자동 닫기
   useEffect(() => { setOpen(false); }, [pathname]);
 
-  // drawer 열려있을 때 body 스크롤 잠금
   useEffect(() => {
     if (open) {
       const prev = document.body.style.overflow;
@@ -43,14 +41,14 @@ export function Sidebar() {
 
   return (
     <>
-      {/* 모바일 상단바 (lg 미만에서만) */}
+      {/* 모바일 상단바 */}
       <header
         className="sticky top-0 z-30 flex h-14 items-center justify-between px-4 lg:hidden"
         style={{ background: 'var(--ink)', color: '#e6e9f2' }}
       >
-        <Link href="/dashboard" className="flex items-center gap-2">
-          <BrandMark size={28} />
-          <span className="text-[13px] font-extrabold tracking-tight text-white">대박통신</span>
+        <Link href="/dashboard" className="flex items-center gap-2.5">
+          <Logo className="h-6 w-6 text-white" />
+          <span className="text-[14px] font-extrabold tracking-tight text-white">대박통신</span>
         </Link>
         <button
           type="button"
@@ -67,7 +65,6 @@ export function Sidebar() {
         </button>
       </header>
 
-      {/* 모바일 backdrop */}
       {open ? (
         <button
           type="button"
@@ -80,18 +77,15 @@ export function Sidebar() {
       <aside
         className={[
           'flex flex-col px-4 py-5',
-          // 모바일: 화면 밖에 대기하다가 open 시 슬라이드인
           'fixed inset-y-0 left-0 z-50 w-[260px] transition-transform duration-200',
           open ? 'translate-x-0' : '-translate-x-full',
-          // lg 이상: 기존처럼 sticky 상단
           'lg:sticky lg:top-0 lg:h-screen lg:w-[232px] lg:translate-x-0',
         ].join(' ')}
         style={{ background: 'var(--ink)', color: '#e6e9f2' }}
       >
-        {/* 브랜드 */}
         <div className="mb-5 flex items-center justify-between pr-1">
           <Link href="/dashboard" className="flex items-center gap-2.5 px-2 pt-1">
-            <BrandMark size={32} />
+            <Logo className="h-8 w-8 shrink-0 text-white" />
             <div>
               <div className="text-[14px] font-extrabold tracking-tight text-white">대박통신</div>
               <div className="mt-0.5 text-[11px]" style={{ color: '#8a93ad' }}>
@@ -112,7 +106,6 @@ export function Sidebar() {
           </button>
         </div>
 
-        {/* 네비 */}
         <nav className="flex flex-col gap-0.5 text-[14px]">
           {NAV.map((item, i) =>
             'type' in item ? (
@@ -139,11 +132,7 @@ export function Sidebar() {
           )}
         </nav>
 
-        {/* 하단 */}
-        <div
-          className="mt-auto border-t pt-3.5"
-          style={{ borderColor: '#1b2142' }}
-        >
+        <div className="mt-auto border-t pt-3.5" style={{ borderColor: '#1b2142' }}>
           <div className="mb-3 flex items-center gap-2.5 rounded-[10px] p-1.5">
             <div
               className="grid h-8 w-8 place-items-center rounded-full font-extrabold"
