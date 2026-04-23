@@ -39,25 +39,20 @@ export default async function MatrixPage({ searchParams }: { searchParams: Searc
   const contract = sp.contract ?? 'common';
   const sb = getSupabaseAdmin();
 
-  const [{ data: tiers }, { data: rows }] = await Promise.all([
+  const [{ data: tiers }, { data: rows }, { data: deviceList }] = await Promise.all([
     sb.from('price_plan_tiers').select('id, code, display_order').eq('carrier', carrier).eq('active', true).order('display_order'),
     sb.from('price_latest_net').select('device_id, device_name, device_code, device_order, device_series, device_storage, retail_price_krw, plan_tier_code, tier_order, vendor_name, contract_type, activation_type, net_price')
       .eq('carrier', carrier).eq('contract_type', contract),
+    sb.from('price_devices')
+      .select('id, model_code, nickname, manufacturer, series, storage, retail_price_krw, display_order')
+      .eq('active', true),
   ]);
 
   const tierCodes = (tiers ?? []).map((t) => t.code);
 
-  // 디바이스 × tier × activation 조합별 최저 Net 뽑기
+  // 디바이스 × tier × activation 조합별 최저 Net 뽑기 (데이터 없는 device도 행은 노출)
   const cellBest = new Map<string, { price: number; vendor: string }>();
-  const deviceMap = new Map<string, { name: string; code: string; order: number; retail: number; series: string | null; storage: string | null }>();
-
   for (const r of (rows ?? []) as NetRow[]) {
-    if (!deviceMap.has(r.device_id)) {
-      deviceMap.set(r.device_id, {
-        name: r.device_name, code: r.device_code, order: r.device_order,
-        retail: r.retail_price_krw, series: r.device_series, storage: r.device_storage,
-      });
-    }
     const key = `${r.device_id}|${r.plan_tier_code}|${r.activation_type}`;
     const current = cellBest.get(key);
     if (!current || r.net_price < current.price) {
@@ -65,13 +60,19 @@ export default async function MatrixPage({ searchParams }: { searchParams: Searc
     }
   }
 
-  const devices = Array.from(deviceMap.entries())
-    .map(([id, d]) => ({
-      id,
-      ...d,
-      retail_price_krw: d.retail,
-      nickname: d.name,
-      model_code: d.code,
+  // 활성 device 전체를 기준 행으로 사용 (quotes 0건인 모델도 "—"로 표시)
+  const devices = [...(deviceList ?? [])]
+    .map((d) => ({
+      id: d.id,
+      name: d.nickname,
+      code: d.model_code,
+      order: d.display_order,
+      retail: d.retail_price_krw,
+      series: d.series,
+      storage: d.storage,
+      retail_price_krw: d.retail_price_krw,
+      nickname: d.nickname,
+      model_code: d.model_code,
     }))
     .sort(compareDevicesForList);
 

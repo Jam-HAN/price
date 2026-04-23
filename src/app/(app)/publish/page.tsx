@@ -33,7 +33,7 @@ export default async function PublishPage({ searchParams }: { searchParams: Sear
   const contract = sp.contract ?? 'common';
 
   const sb = getSupabaseAdmin();
-  const [{ data: tiers }, { data: rows }] = await Promise.all([
+  const [{ data: tiers }, { data: rows }, { data: deviceList }] = await Promise.all([
     sb
       .from('price_plan_tiers')
       .select('id, code, label, monthly_fee_krw, display_order')
@@ -47,6 +47,10 @@ export default async function PublishPage({ searchParams }: { searchParams: Sear
       )
       .eq('carrier', carrier)
       .eq('contract_type', contract),
+    sb
+      .from('price_devices')
+      .select('id, model_code, nickname, series, storage, retail_price_krw, display_order')
+      .eq('active', true),
   ]);
 
   // 디바이스별 tier × activation 집계, 최저 Net가 기준
@@ -60,20 +64,22 @@ export default async function PublishPage({ searchParams }: { searchParams: Sear
     retail: number;
     byTierAct: Map<string, Cell>; // key = `${tier}|${activation}`
   };
+  // 활성 device 전체를 기준 행으로 초기화 (quotes 0건인 모델도 행은 노출)
   const agg = new Map<string, DeviceAgg>();
+  for (const d of deviceList ?? []) {
+    agg.set(d.id, {
+      id: d.id,
+      name: d.nickname,
+      code: d.model_code,
+      series: d.series,
+      storage: d.storage,
+      retail: d.retail_price_krw,
+      byTierAct: new Map(),
+    });
+  }
   for (const r of rows ?? []) {
-    if (!agg.has(r.device_id)) {
-      agg.set(r.device_id, {
-        id: r.device_id,
-        name: r.device_name,
-        code: r.device_code,
-        series: r.device_series,
-        storage: r.device_storage,
-        retail: r.retail_price_krw,
-        byTierAct: new Map(),
-      });
-    }
-    const d = agg.get(r.device_id)!;
+    const d = agg.get(r.device_id);
+    if (!d) continue; // inactive / deleted device는 무시
     const key = `${r.plan_tier_code}|${r.activation_type}`;
     const cell: Cell = {
       net: r.net_price,
