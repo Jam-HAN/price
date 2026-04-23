@@ -366,12 +366,15 @@ input[type="checkbox"] { accent-color: var(--blue); }
   @media (min-width: 1024px) {
     .t th, .t td { padding: 10px 14px; font-size: 13px; }
   }
-  /* 테이블이 좁은 뷰포트에서 잘리지 않도록 .card > table 은 스크롤 허용 */
-  .card > .t,
-  .card > table.t {
-    display: block;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
+  /* 테이블이 좁은 뷰포트에서 잘리지 않도록 .card > table 은 모바일에서만 스크롤 허용.
+     데스크탑에서는 display:block 이 표 레이아웃을 깨뜨리므로 적용하지 않는다. */
+  @media (max-width: 1023px) {
+    .card > .t,
+    .card > table.t {
+      display: block;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
   }
   .t th {
     font-weight: 600;

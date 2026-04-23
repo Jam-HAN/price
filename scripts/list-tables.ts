@@ -8,8 +8,8 @@ async function main() {
   console.log('price_vendor_quotes count=', q.count, 'sample=', q.data?.slice(0, 3));
   const s = await sb.from('price_carrier_subsidies').select('*', { count: 'exact' }).limit(3);
   console.log('price_carrier_subsidies count=', s.count, 'sample=', s.data?.slice(0, 3));
-  const sheets = await sb.from('price_vendor_quote_sheets').select('id, vendor_id, effective_date, parse_status, created_at').order('created_at', { ascending: false }).limit(10);
-  console.log('recent sheets:');
+  const sheets = await sb.from('price_vendor_quote_sheets').select('id, vendor_id, effective_date, parse_status, uploaded_at').order('uploaded_at', { ascending: false }).limit(10);
+  console.log('recent sheets: error=', sheets.error?.message);
   console.table(sheets.data);
 }
 main().catch(console.error);
