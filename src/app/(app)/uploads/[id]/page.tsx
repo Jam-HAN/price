@@ -6,6 +6,7 @@ import type { SheetExtraction } from '@/lib/vision-schema';
 import { formatKrw } from '@/lib/fmt';
 import { deleteSheet, updateParsed, autoRegisterMissingDevices } from './actions';
 import { runAllChecks, dedupeFlagsByCell, flagKey } from '@/lib/consistency';
+import { normalizeDeviceCode } from '@/lib/device-normalize';
 import { FullReparseButton } from './FullReparseButton';
 import { EditableModelsTable } from './EditableModelsTable';
 
@@ -47,7 +48,6 @@ export default async function SheetReviewPage({
   const deviceByCode = new Map((devices ?? []).map((d) => [d.model_code, d.id]));
   const deviceByNick = new Map((devices ?? []).map((d) => [d.nickname, d.id]));
   const tierCodes = new Set((tiers ?? []).map((t) => t.code));
-  const { normalizeDeviceCode } = await import('@/lib/device-normalize');
   const deviceByNormalized = new Map<string, string>();
   for (const d of devices ?? []) {
     const n = normalizeDeviceCode(d.model_code);

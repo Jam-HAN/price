@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { formatMan } from '@/lib/fmt';
 import { updateRebate } from './actions';
@@ -33,15 +33,15 @@ export function RebateTable({
   const [activeVendorId, setActiveVendorId] = useState(vendors[0]?.id ?? '');
   const activeSheetId = latestSheetByVendor[activeVendorId] ?? '';
 
-  // 해당 거래처 리베이트만 필터
-  const vendorRebates = rebates.filter((r) => r.sheet_id === activeSheetId);
-  const rebateMap = new Map<string, number>();
-  for (const r of vendorRebates) {
-    rebateMap.set(
-      `${r.device_id}|${r.plan_tier_id}|${r.contract_type}|${r.activation_type}`,
-      r.amount_krw,
-    );
-  }
+  // 해당 거래처 리베이트만 필터 + Map 구성 (거래처 전환 시에만 재계산)
+  const rebateMap = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const r of rebates) {
+      if (r.sheet_id !== activeSheetId) continue;
+      m.set(`${r.device_id}|${r.plan_tier_id}|${r.contract_type}|${r.activation_type}`, r.amount_krw);
+    }
+    return m;
+  }, [rebates, activeSheetId]);
 
   return (
     <div className="space-y-3">

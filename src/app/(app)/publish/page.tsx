@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { getSupabaseAdmin } from '@/lib/supabase';
-import { type Carrier, compareDevicesForList } from '@/lib/fmt';
+import { type Carrier, compareDevicesForList, formatKrw, formatMan } from '@/lib/fmt';
 import { PageHeader, CarrierPill, Chip, SegmentedLink, type CarrierKey } from '@/components/ui';
 
 export const dynamic = 'force-dynamic';
@@ -17,14 +17,7 @@ const CARRIERS: CarrierKey[] = ['SKT', 'KT', 'LGU+'];
 // 핸드오프의 sheet.net / sheet.cust 템플릿을 렌더링.
 // 데이터: price_customer_view — 디바이스 × 통신사 × 구간 × (공통/선약) × (010/MNP/기변) × net/margin/customer_price
 
-function formatKRW(n: number | null | undefined): string {
-  if (n == null) return '-';
-  return new Intl.NumberFormat('ko-KR').format(Math.round(n));
-}
-function formatMan(n: number | null | undefined): string {
-  if (n == null) return '—';
-  return (Math.trunc(n / 1000) / 10).toFixed(1);
-}
+const formatKRW = formatKrw; // publish 시트는 숫자만 (단위 접미사 없음)
 
 export default async function PublishPage({ searchParams }: { searchParams: SearchParams }) {
   const sp = await searchParams;

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { formatMan } from '@/lib/fmt';
 import { updateCarrierSubsidy } from './actions';
@@ -18,8 +18,11 @@ export function SubsidyTable({
 }) {
   const { devices, tiers, subsidies } = bundle;
 
-  const map = new Map<string, number>();
-  for (const s of subsidies) map.set(`${s.device_id}|${s.plan_tier_id}`, s.subsidy_krw);
+  const map = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const s of subsidies) m.set(`${s.device_id}|${s.plan_tier_id}`, s.subsidy_krw);
+    return m;
+  }, [subsidies]);
 
   return (
     <div className="card overflow-hidden">
