@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { BrandMark } from './BrandMark';
 
 type NavItem =
   | { type: 'section'; label: string }
@@ -48,12 +49,7 @@ export function Sidebar() {
         style={{ background: 'var(--ink)', color: '#e6e9f2' }}
       >
         <Link href="/dashboard" className="flex items-center gap-2">
-          <div
-            className="grid h-7 w-7 place-items-center rounded-[8px] text-[13px] font-extrabold text-white"
-            style={{ background: 'linear-gradient(135deg, #2152ff, #7a9bff 60%, #d4ff3f)' }}
-          >
-            대
-          </div>
+          <BrandMark size={28} />
           <span className="text-[13px] font-extrabold tracking-tight text-white">대박통신</span>
         </Link>
         <button
@@ -95,12 +91,7 @@ export function Sidebar() {
         {/* 브랜드 */}
         <div className="mb-5 flex items-center justify-between pr-1">
           <Link href="/dashboard" className="flex items-center gap-2.5 px-2 pt-1">
-            <div
-              className="grid h-8 w-8 place-items-center rounded-[9px] text-[16px] font-extrabold text-white"
-              style={{ background: 'linear-gradient(135deg, #2152ff, #7a9bff 60%, #d4ff3f)' }}
-            >
-              대
-            </div>
+            <BrandMark size={32} />
             <div>
               <div className="text-[14px] font-extrabold tracking-tight text-white">대박통신</div>
               <div className="mt-0.5 text-[11px]" style={{ color: '#8a93ad' }}>

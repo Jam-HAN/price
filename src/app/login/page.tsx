@@ -1,17 +1,22 @@
+import { BrandMark } from '@/components/BrandMark';
+
 type SearchParams = Promise<{ next?: string; error?: string }>;
 
 export default async function LoginPage({ searchParams }: { searchParams: SearchParams }) {
   const { next, error } = await searchParams;
   return (
-    <main className="flex flex-1 items-center justify-center bg-zinc-50">
+    <main className="flex min-h-screen flex-1 items-center justify-center bg-zinc-50 p-4">
       <form
         method="post"
         action="/api/login"
         className="w-full max-w-sm space-y-4 rounded-2xl border border-zinc-200 bg-white p-8 shadow-sm"
       >
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">대박통신 단가표 시스템</h1>
-          <p className="mt-1 text-sm text-zinc-500">내부 접근 비밀번호</p>
+        <div className="flex items-center gap-3">
+          <BrandMark size={44} />
+          <div>
+            <h1 className="text-xl font-bold tracking-tight">대박통신</h1>
+            <p className="text-sm text-zinc-500">단가표 시스템</p>
+          </div>
         </div>
         <input type="hidden" name="next" value={next ?? '/'} />
         <input
