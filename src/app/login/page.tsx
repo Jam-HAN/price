@@ -12,7 +12,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Search
         className="w-full max-w-sm space-y-5 rounded-2xl border border-zinc-200 bg-white p-8 shadow-sm"
       >
         <div className="flex flex-col items-center gap-2">
-          <Logo className="h-12 w-12 text-zinc-900" />
+          <Logo className="h-12 w-12" />
           <div className="text-center">
             <h1 className="text-xl font-bold tracking-tight">대박통신</h1>
             <p className="text-sm text-zinc-500">단가표 시스템</p>

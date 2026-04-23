@@ -47,7 +47,7 @@ export function Sidebar() {
         style={{ background: 'var(--ink)', color: '#e6e9f2' }}
       >
         <Link href="/dashboard" className="flex items-center gap-2.5">
-          <Logo className="h-6 w-6 text-white" />
+          <Logo variant="light" className="h-6 w-6" />
           <span className="text-[14px] font-extrabold tracking-tight text-white">대박통신</span>
         </Link>
         <button
@@ -85,7 +85,7 @@ export function Sidebar() {
       >
         <div className="mb-5 flex items-center justify-between pr-1">
           <Link href="/dashboard" className="flex items-center gap-2.5 px-2 pt-1">
-            <Logo className="h-8 w-8 shrink-0 text-white" />
+            <Logo variant="light" className="h-8 w-8 shrink-0" />
             <div>
               <div className="text-[14px] font-extrabold tracking-tight text-white">대박통신</div>
               <div className="mt-0.5 text-[11px]" style={{ color: '#8a93ad' }}>

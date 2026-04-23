@@ -387,7 +387,7 @@ input[type="checkbox"] { accent-color: var(--blue); }
     text-align: center;
   }
   .t tbody tr:hover td { background: #fafbff; }
-  .t .right { text-align: right; }
+  .t td.right { text-align: right; }
   .t .num { font-variant-numeric: tabular-nums; }
 
   /* Stat card */
