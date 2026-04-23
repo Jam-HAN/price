@@ -10,7 +10,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Search
         className="w-full max-w-sm space-y-4 rounded-2xl border border-zinc-200 bg-white p-8 shadow-sm"
       >
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">대박통신 · 단가</h1>
+          <h1 className="text-2xl font-bold tracking-tight">대박통신 단가표 시스템</h1>
           <p className="mt-1 text-sm text-zinc-500">내부 접근 비밀번호</p>
         </div>
         <input type="hidden" name="next" value={next ?? '/'} />

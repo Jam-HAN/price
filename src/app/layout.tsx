@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: '대박통신 · 단가',
+  title: '대박통신 단가표 시스템',
   description: '거래처 단가표 수집 · Net가 비교',
 };
 

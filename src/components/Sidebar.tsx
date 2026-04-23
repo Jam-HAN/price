@@ -104,7 +104,7 @@ export function Sidebar() {
             <div>
               <div className="text-[14px] font-extrabold tracking-tight text-white">대박통신</div>
               <div className="mt-0.5 text-[11px]" style={{ color: '#8a93ad' }}>
-                단가 시스템
+                단가표 시스템
               </div>
             </div>
           </Link>
