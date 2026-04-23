@@ -384,6 +384,7 @@ input[type="checkbox"] { accent-color: var(--blue); }
     letter-spacing: 0.06em;
     background: #fafbff;
     border-bottom: 1px solid var(--line);
+    text-align: center;
   }
   .t tbody tr:hover td { background: #fafbff; }
   .t .right { text-align: right; }
