@@ -40,7 +40,7 @@ export async function autoRegisterMissingDevices(formData: FormData) {
     .select('vendor_code, device_id')
     .eq('vendor_id', sheet.vendor_id);
   const aliasMap = new Map((existingAliases ?? []).map((a) => [a.vendor_code, a.device_id]));
-  const { data: devices } = await sb.from('price_devices').select('id, model_code, nickname');
+  const { data: devices } = await sb.from('price_devices').select('id, model_code, nickname').eq('active', true);
   const deviceByCode = new Map((devices ?? []).map((d) => [d.model_code, d.id]));
   const deviceByNick = new Map((devices ?? []).map((d) => [d.nickname, d.id]));
   const deviceByNormalized = new Map<string, string>();

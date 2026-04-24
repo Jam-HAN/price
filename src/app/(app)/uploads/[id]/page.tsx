@@ -41,7 +41,7 @@ export default async function SheetReviewPage({
   // 확정 미리보기용: 매핑 가능 여부 검사
   const [{ data: aliases }, { data: devices }, { data: tiers }] = await Promise.all([
     sb.from('price_device_aliases').select('vendor_code, device_id').eq('vendor_id', sheet.vendor_id),
-    sb.from('price_devices').select('id, model_code, nickname'),
+    sb.from('price_devices').select('id, model_code, nickname').eq('active', true),
     sb.from('price_plan_tiers').select('id, code').eq('carrier', vendor?.carrier ?? ''),
   ]);
   const aliasMap = new Map((aliases ?? []).map((a) => [a.vendor_code, a.device_id]));

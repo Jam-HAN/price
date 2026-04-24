@@ -26,7 +26,7 @@ export async function syncSheetToNormalized(sheetId: string) {
 
   const [{ data: aliases }, { data: devices }, { data: tiers }] = await Promise.all([
     sb.from('price_device_aliases').select('vendor_code, device_id').eq('vendor_id', sheet.vendor_id),
-    sb.from('price_devices').select('id, model_code, nickname'),
+    sb.from('price_devices').select('id, model_code, nickname').eq('active', true),
     sb.from('price_plan_tiers').select('id, code, carrier').eq('carrier', carrier),
   ]);
   const aliasMap = new Map((aliases ?? []).map((a) => [a.vendor_code, a.device_id]));
