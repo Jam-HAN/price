@@ -9,15 +9,13 @@ export function formatKrw(n: number | string | null | undefined): string {
 }
 
 /**
- * 금액을 "##.#" 만원 단위 문자열로 포맷.
- * 규칙: 천원 단위 반올림 — 예: 155,900원 → "15.6", 155,000원 → "15.5", 155,400원 → "15.5"
+ * 금액을 만원 단위 정수 문자열로 포맷.
+ * 규칙: 만원 단위 반올림 — 예: 155,900원 → "16", 154,900원 → "15", 150,000원 → "15"
  * null/undefined/NaN → "—"
  */
 export function formatMan(n: number | null | undefined): string {
   if (n == null || !Number.isFinite(n)) return '—';
-  // 천원 단위 반올림 후 / 10 = 만원 소수 1자리
-  const man = Math.round(n / 1000) / 10;
-  return man.toFixed(1);
+  return String(Math.round(n / 10_000));
 }
 
 /** 한국시간(Asia/Seoul) 기준 오늘 YYYY-MM-DD */
