@@ -5,6 +5,7 @@ import { clovaExtract } from '@/lib/clova-ocr';
 import { resolveClovaParser } from '@/lib/clova-parse-router';
 import { cropAndResize, type CropSpec } from '@/lib/image-crop';
 import { syncSheetToNormalized } from '@/lib/sync-sheet';
+import { kstToday } from '@/lib/fmt';
 
 export const maxDuration = 300;
 
@@ -65,7 +66,7 @@ export async function POST(req: Request) {
 async function handle(req: Request) {
   const form = await req.formData();
   const vendorId = String(form.get('vendor_id') ?? '');
-  const effectiveDate = String(form.get('effective_date') ?? new Date().toISOString().slice(0, 10));
+  const effectiveDate = String(form.get('effective_date') ?? kstToday());
   const file = form.get('file') as File | null;
   // 프론트에서 크롭 영역을 직접 넘기면 벤더 기본값을 오버라이드. 없으면 vendor.crop_spec 사용.
   const cropSpecFromForm = parseCropSpec(form.get('crop_spec'));

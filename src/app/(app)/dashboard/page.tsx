@@ -1,21 +1,24 @@
 import Link from 'next/link';
 import { getSupabaseAdmin } from '@/lib/supabase';
+import { kstToday, kstRelativeTime as relativeTime } from '@/lib/fmt';
 import { PageHeader, StatCard, Chip, CarrierPill, type CarrierKey } from '@/components/ui';
 
 export const dynamic = 'force-dynamic';
 
-function relativeTime(iso: string): string {
-  const diff = (Date.now() - new Date(iso).getTime()) / 1000;
-  if (diff < 60) return '방금';
-  if (diff < 3600) return `${Math.floor(diff / 60)}분 전`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}시간 전`;
-  return `${Math.floor(diff / 86400)}일 전`;
+function kstDaysAgo(n: number): string {
+  // KST 오늘에서 n일 전의 KST 날짜
+  const kstNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
+  kstNow.setDate(kstNow.getDate() - n);
+  const y = kstNow.getFullYear();
+  const m = String(kstNow.getMonth() + 1).padStart(2, '0');
+  const d = String(kstNow.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }
 
 export default async function DashboardPage() {
   const sb = getSupabaseAdmin();
-  const today = new Date().toISOString().slice(0, 10);
-  const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
+  const today = kstToday();
+  const weekAgo = kstDaysAgo(7);
 
   const [
     { data: vendors },

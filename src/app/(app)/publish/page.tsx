@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { getSupabaseAdmin } from '@/lib/supabase';
-import { type Carrier, compareDevicesForList, formatKrw, formatMan } from '@/lib/fmt';
+import { type Carrier, compareDevicesForList, formatKrw, formatMan, kstToday } from '@/lib/fmt';
 import { PageHeader, CarrierPill, Chip, SegmentedLink, type CarrierKey } from '@/components/ui';
 
 export const dynamic = 'force-dynamic';
@@ -215,7 +215,7 @@ function NetSheet({
   );
   const avgNet = allCells.length ? Math.round(allCells.reduce((s, c) => s + c.net, 0) / allCells.length) : 0;
   const avgMargin = allCells.length ? Math.round(allCells.reduce((s, c) => s + c.margin, 0) / allCells.length) : 0;
-  const today = new Date().toISOString().slice(0, 10);
+  const today = kstToday();
 
   return (
     <div
@@ -423,7 +423,7 @@ function CustSheet({
   carrier: CarrierKey;
   contract: 'common' | 'select';
 }) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = kstToday();
 
   return (
     <div

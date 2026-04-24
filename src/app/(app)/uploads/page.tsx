@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { getSupabaseAdmin } from '@/lib/supabase';
+import { formatKstDateTime } from '@/lib/fmt';
 import { UploadForm } from './UploadForm';
 import { PageHeader, Chip, CarrierPill, type CarrierKey } from '@/components/ui';
 
@@ -68,7 +69,7 @@ export default async function UploadsPage() {
                     <StatusChip status={s.parse_status} />
                   </td>
                   <td className="text-center text-[12px]" style={{ color: 'var(--ink-3)' }}>
-                    {new Date(s.uploaded_at).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric' })}
+                    {formatKstDateTime(s.uploaded_at)}
                   </td>
                   <td className="text-center">
                     <Link href={`/uploads/${s.id}`} className="btn btn-sm btn-ghost">

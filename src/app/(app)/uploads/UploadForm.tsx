@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useDropzone } from 'react-dropzone';
+import { kstToday } from '@/lib/fmt';
 
 type CropSpec = { yRatio0: number; yRatio1: number; targetWidth: number };
 type Vendor = {
@@ -46,7 +47,7 @@ async function maybeResize(file: File): Promise<File> {
 
 export function UploadForm({ vendors }: { vendors: Vendor[] }) {
   const router = useRouter();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = kstToday();
   const [vendorId, setVendorId] = useState(vendors[0]?.id ?? '');
   const [date, setDate] = useState(today);
   const [file, setFile] = useState<File | null>(null);

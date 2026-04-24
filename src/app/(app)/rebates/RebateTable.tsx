@@ -31,8 +31,6 @@ export function RebateTable({
   latestSheetByVendor: Record<string, string>;
 }) {
   const [activeVendorId, setActiveVendorId] = useState(vendors[0]?.id ?? '');
-  const [contract, setContract] = useState<'common' | 'select'>('common');
-  const [act, setAct] = useState<'new010' | 'mnp' | 'change'>('mnp');
   const activeSheetId = latestSheetByVendor[activeVendorId] ?? '';
 
   // 해당 거래처 리베이트만 필터 + Map 구성 (거래처 전환 시에만 재계산)
@@ -48,6 +46,16 @@ export function RebateTable({
   const segBtn = (active: boolean) =>
     `rounded-full px-3 py-1 text-xs transition ${active ? 'bg-zinc-900 text-white' : 'bg-white border border-zinc-200 text-zinc-600 hover:bg-zinc-100'}`;
 
+  // 공·010/MNP/기변 + 선·010/MNP/기변 순
+  const COMBOS: { ct: 'common' | 'select'; at: 'new010' | 'mnp' | 'change'; label: string; dim?: boolean }[] = [
+    { ct: 'common', at: 'new010', label: '공·010' },
+    { ct: 'common', at: 'mnp',    label: '공·MNP' },
+    { ct: 'common', at: 'change', label: '공·기변' },
+    { ct: 'select', at: 'new010', label: '선·010', dim: true },
+    { ct: 'select', at: 'mnp',    label: '선·MNP', dim: true },
+    { ct: 'select', at: 'change', label: '선·기변', dim: true },
+  ];
+
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2 text-sm">
@@ -57,13 +65,6 @@ export function RebateTable({
             {v.name}
           </button>
         ))}
-        <span className="ml-4 text-zinc-500">약정</span>
-        <button onClick={() => setContract('common')} className={segBtn(contract === 'common')}>공통</button>
-        <button onClick={() => setContract('select')} className={segBtn(contract === 'select')}>선약</button>
-        <span className="ml-4 text-zinc-500">구분</span>
-        <button onClick={() => setAct('mnp')} className={segBtn(act === 'mnp')}>MNP</button>
-        <button onClick={() => setAct('new010')} className={segBtn(act === 'new010')}>010</button>
-        <button onClick={() => setAct('change')} className={segBtn(act === 'change')}>기변</button>
         {!activeSheetId && (
           <span className="ml-2 text-xs text-red-500">※ {vendors.find((v) => v.id === activeVendorId)?.name}: 확정 시트 없음</span>
         )}
@@ -73,12 +74,25 @@ export function RebateTable({
         <table className="w-full text-xs">
           <thead className="bg-zinc-50 text-zinc-500">
             <tr>
-              <th className="sticky left-0 bg-zinc-50 px-3 py-2 text-left">모델</th>
+              <th rowSpan={2} className="sticky left-0 bg-zinc-50 px-3 py-2 text-left">모델</th>
               {tiers.map((t) => (
-                <th key={t.id} className="border-l border-zinc-200 px-3 py-2 text-right text-[11px] font-bold">
+                <th key={t.id} colSpan={COMBOS.length} className="border-l border-zinc-200 px-2 py-1 text-center text-[11px] font-bold">
                   {t.code}
                 </th>
               ))}
+            </tr>
+            <tr>
+              {tiers.map((t) =>
+                COMBOS.map((c, i) => (
+                  <th
+                    key={`${t.id}-${c.ct}-${c.at}`}
+                    className={`px-1 py-1 text-[10px] font-normal ${c.dim ? 'text-zinc-400' : ''}`}
+                    style={{ borderLeft: i === 0 ? '1px solid rgb(228 228 231)' : undefined }}
+                  >
+                    {c.label}
+                  </th>
+                )),
+              )}
             </tr>
           </thead>
           <tbody>
@@ -88,17 +102,21 @@ export function RebateTable({
                   <div>{d.nickname}</div>
                   <div className="font-mono text-[10px] text-zinc-400">{d.model_code}</div>
                 </td>
-                {tiers.map((t) => (
-                  <EditCell
-                    key={t.id}
-                    sheetId={activeSheetId}
-                    deviceId={d.id}
-                    tierId={t.id}
-                    ct={contract}
-                    at={act}
-                    value={rebateMap.get(`${d.id}|${t.id}|${contract}|${act}`) ?? null}
-                  />
-                ))}
+                {tiers.map((t) =>
+                  COMBOS.map((c, i) => (
+                    <EditCell
+                      key={`${t.id}-${c.ct}-${c.at}`}
+                      sheetId={activeSheetId}
+                      deviceId={d.id}
+                      tierId={t.id}
+                      ct={c.ct}
+                      at={c.at}
+                      value={rebateMap.get(`${d.id}|${t.id}|${c.ct}|${c.at}`) ?? null}
+                      dim={c.dim}
+                      leftBorder={i === 0}
+                    />
+                  )),
+                )}
               </tr>
             ))}
           </tbody>
@@ -116,6 +134,7 @@ function EditCell({
   at,
   value,
   dim,
+  leftBorder,
 }: {
   sheetId: string;
   deviceId: string;
@@ -124,6 +143,7 @@ function EditCell({
   at: 'new010' | 'mnp' | 'change';
   value: number | null;
   dim?: boolean;
+  leftBorder?: boolean;
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
@@ -159,7 +179,10 @@ function EditCell({
   };
 
   return (
-    <td className={`px-1 py-1 text-right font-mono text-[11px] ${dim ? 'text-zinc-500' : ''}`}>
+    <td
+      className={`px-1 py-1 text-right font-mono text-[11px] ${dim ? 'text-zinc-500' : ''}`}
+      style={leftBorder ? { borderLeft: '1px solid rgb(228 228 231)' } : undefined}
+    >
       {editing && sheetId ? (
         <input
           autoFocus

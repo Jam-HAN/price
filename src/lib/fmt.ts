@@ -10,14 +10,47 @@ export function formatKrw(n: number | string | null | undefined): string {
 
 /**
  * 금액을 "##.#" 만원 단위 문자열로 포맷.
- * 규칙: 천원 미만은 내림(버림) — 예: 155,900원 → "15.5", 155,000원 → "15.5", 156,000원 → "15.6"
+ * 규칙: 천원 단위 반올림 — 예: 155,900원 → "15.6", 155,000원 → "15.5", 155,400원 → "15.5"
  * null/undefined/NaN → "—"
  */
 export function formatMan(n: number | null | undefined): string {
   if (n == null || !Number.isFinite(n)) return '—';
-  // 천원 단위로 내림(trunc toward 0) 후 / 10 = 만원 소수 1자리
-  const man = Math.trunc(n / 1000) / 10;
+  // 천원 단위 반올림 후 / 10 = 만원 소수 1자리
+  const man = Math.round(n / 1000) / 10;
   return man.toFixed(1);
+}
+
+/** 한국시간(Asia/Seoul) 기준 오늘 YYYY-MM-DD */
+export function kstToday(): string {
+  const now = new Date();
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(now); // en-CA 로케일은 YYYY-MM-DD 출력
+}
+
+/** UTC ISO 문자열을 KST "M월 D일 HH:mm" 로 포맷 */
+export function formatKstDateTime(iso: string | Date): string {
+  const d = typeof iso === 'string' ? new Date(iso) : iso;
+  return new Intl.DateTimeFormat('ko-KR', {
+    timeZone: 'Asia/Seoul',
+    month: 'numeric',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(d);
+}
+
+/** KST 기준 상대시간 ("방금", "5분 전", "3시간 전", "2일 전") */
+export function kstRelativeTime(iso: string): string {
+  const diff = (Date.now() - new Date(iso).getTime()) / 1000;
+  if (diff < 60) return '방금';
+  if (diff < 3600) return `${Math.floor(diff / 60)}분 전`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}시간 전`;
+  return `${Math.floor(diff / 86400)}일 전`;
 }
 
 /**
