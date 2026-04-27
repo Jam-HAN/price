@@ -192,6 +192,7 @@ async function handle(req: Request) {
         totalStaged: 0,
         rawRows: 0,
         rows: 0,
+        rowLengthHistogram: [],
         K: 0,
         useReps: false,
         mergedCells: 0,

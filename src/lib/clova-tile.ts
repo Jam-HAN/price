@@ -78,32 +78,42 @@ function cellAvgPos(cell: RawCell): Vertex | null {
 function buildColumnRepresentatives(rows: StagedCell[][]): number[] {
   if (rows.length === 0) return [];
 
-  const counts = rows.map((r) => r.length);
-  const freq = new Map<number, number>();
-  for (const n of counts) freq.set(n, (freq.get(n) ?? 0) + 1);
-
-  let K = 0;
-  let bestFreq = 0;
-  for (const [n, f] of freq) {
-    if (n >= 2 && f > bestFreq) {
-      K = n;
-      bestFreq = f;
-    }
-  }
+  // K = 가장 cell 많은 상위 10% row의 평균 길이.
+  // mode 기반은 청담처럼 데이터 row 길이가 들쭉날쭉할 때 K가 절반 가까이 잘못 잡힘.
+  // top-decile은 outlier 영향 줄이면서도 진짜 컬럼 수에 가깝게 추정.
+  const counts = rows.map((r) => r.length).filter((n) => n >= 2);
+  if (counts.length === 0) return [];
+  const sorted = [...counts].sort((a, b) => b - a);
+  const topN = Math.max(1, Math.floor(sorted.length * 0.1));
+  const K = Math.round(sorted.slice(0, topN).reduce((s, n) => s + n, 0) / topN);
   if (K < 2) return [];
 
-  const anchors = rows.filter((r) => r.length === K);
+  // anchor: 길이가 K±1인 row (정확히 K가 적으면 ±1 관용)
+  const anchors = rows.filter((r) => Math.abs(r.length - K) <= 1 && r.length >= 2);
   if (anchors.length === 0) return [];
 
-  const sortedAnchors = anchors.map((r) => [...r].sort((a, b) => a.origX - b.origX));
+  // 모든 anchor의 cells을 origX 정렬, i번째 cells의 origX 평균
+  // anchor 길이가 ±1이라 일부 row는 K-1 cells. 가장 긴 row 위주로 사용
+  const sortedAnchors = anchors
+    .map((r) => [...r].sort((a, b) => a.origX - b.origX))
+    .sort((a, b) => b.length - a.length); // 긴 순으로
+
   const reps: number[] = [];
   for (let i = 0; i < K; i++) {
-    let sum = 0;
-    for (const r of sortedAnchors) sum += r[i].origX;
-    reps.push(sum / sortedAnchors.length);
+    const xs: number[] = [];
+    for (const r of sortedAnchors) {
+      if (i < r.length) xs.push(r[i].origX);
+    }
+    if (xs.length === 0) {
+      // 보간: 이전/다음 rep 평균
+      const prev = reps[i - 1];
+      reps.push(prev != null ? prev + 30 : 0);
+    } else {
+      reps.push(xs.reduce((s, x) => s + x, 0) / xs.length);
+    }
   }
   console.log(
-    `[clova-tile] column reps K=${K} from ${anchors.length}/${rows.length} anchor rows (modeFreq=${bestFreq})`,
+    `[clova-tile] column reps K=${K} from ${anchors.length}/${rows.length} anchor rows (top-decile)`,
   );
   return reps;
 }
@@ -146,6 +156,7 @@ export type TileDebug = {
   totalStaged: number;
   rawRows: number;
   rows: number;
+  rowLengthHistogram: Array<{ length: number; count: number }>;
   K: number;
   useReps: boolean;
   mergedCells: number;
@@ -221,9 +232,12 @@ export async function tileAndExtract(opts: {
       const fields = img.fields ?? [];
 
       let stagedFromTile = 0;
+      // tableCells가 너무 적으면 (예: < 50) CLOVA 표 인식 실패로 간주, fields도 함께 사용
+      const SPARSE_TABLE_THRESHOLD = 50;
+      const useFieldsAlso = cells.length < SPARSE_TABLE_THRESHOLD;
 
       if (cells.length > 0) {
-        // 정상 경로: tables[0].cells 사용
+        // tables[0].cells 사용
         for (const cell of cells) {
           const pos = cellAvgPos(cell);
           if (!pos) continue;
@@ -242,8 +256,10 @@ export async function tileAndExtract(opts: {
           });
           stagedFromTile++;
         }
-      } else {
-        // Fallback: CLOVA가 절반 자른 tile에서 표 인식 실패 → fields 토큰 사용
+      }
+
+      if (cells.length === 0 || useFieldsAlso) {
+        // 표 인식 부족 → fields 토큰도 staging (overlap dedup은 column reclustering이 처리)
         for (const f of fields) {
           const verts = f.boundingPoly?.vertices ?? [];
           if (!verts.length) continue;
@@ -258,7 +274,7 @@ export async function tileAndExtract(opts: {
           staged.push({
             origX,
             origY,
-            columnIndex: -1, // 무의미 — 이후 column reclustering이 처리
+            columnIndex: -1,
             text,
             confidence: f.inferConfidence ?? 0,
           });
@@ -303,7 +319,8 @@ export async function tileAndExtract(opts: {
 
   // Token stitching: fields-fallback에선 같은 셀의 토큰들이 origX 0~수px 차이로 분리됨.
   // row 안에서 origX 정렬 후 인접 차이가 작으면 하나의 cell로 결합.
-  const STITCH_X_GAP_PX = 8;
+  // 단가 컬럼은 가로 폭이 좁아서 임계가 너무 크면 인접 컬럼이 합쳐짐 → 4px로 보수적.
+  const STITCH_X_GAP_PX = 4;
   const rows: StagedCell[][] = rawRows.map((row) => {
     const sorted = [...row].sort((a, b) => a.origX - b.origX);
     const merged: StagedCell[] = [];
@@ -323,6 +340,13 @@ export async function tileAndExtract(opts: {
   if (dbg) {
     dbg.rawRows = rawRows.length;
     dbg.rows = rows.length;
+    // row length histogram (가장 빈번한 길이 top 10)
+    const freq = new Map<number, number>();
+    for (const r of rows) freq.set(r.length, (freq.get(r.length) ?? 0) + 1);
+    dbg.rowLengthHistogram = Array.from(freq.entries())
+      .map(([length, count]) => ({ length, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
   }
 
   // 좌표 기반 column 재클러스터링.
