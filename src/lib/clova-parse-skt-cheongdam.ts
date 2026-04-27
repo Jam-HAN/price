@@ -54,6 +54,20 @@ function parseNumberOrNull(s: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+/**
+ * 청담 파서 전용 sanity check. 단가/공시지원금은 모두 만원 단위로 들어오며
+ * 정상 범위는 0~80만원(=raw n 0~80). 보수적으로 1천만원(=raw n 1000) 초과는 OCR
+ * 이상으로 간주하고 null 처리. 운영DB sync에서 견적이 망가지는 사고 방지.
+ *
+ * 발견된 OCR 오류 예시: raw "3050400000" 같은 30억 단위 값.
+ */
+function parseManAmountOrNull(s: string): number | null {
+  const n = parseNumberOrNull(s);
+  if (n == null) return null;
+  if (n < 0 || n > 1000) return null;
+  return n;
+}
+
 const TIERS: Array<{ code: string; baseCol: number }> = [
   { code: '요금제붐업', baseCol: 3 },
   { code: 'I_100',      baseCol: 10 },
@@ -75,23 +89,28 @@ export function parseClovaCheongdam(resp: ClovaResponse): SheetExtraction {
   const models: ParsedModel[] = [];
 
   for (let r = 0; r <= maxRow; r++) {
-    const modelCode = (grid.get(`${r}|0`) ?? '').trim();
+    // OCR이 인접 행 모델코드를 한 셀에 합쳐서 내놓는 경우(e.g., "SM-F741N SM-F741N_512G")
+    // 첫 토큰만 채택
+    const modelCode = (grid.get(`${r}|0`) ?? '').trim().split(/\s+/)[0];
     if (!/^(SM-|UIP|UAW|AT-|IP[A\d]|AIP)/.test(modelCode)) continue;
 
     const nickname = (grid.get(`${r}|1`) ?? '').trim();
     const retailDigits = (grid.get(`${r}|2`) ?? '').replace(/\D/g, '');
-    const retail_price_krw = retailDigits ? Number(retailDigits) : null;
+    const retailRaw = retailDigits ? Number(retailDigits) : null;
+    // 출고가 sanity: 0~1000만원 범위 (1억 초과는 OCR 오류로 간주). 보수적으로 0이면 0 유지.
+    const retail_price_krw =
+      retailRaw != null && retailRaw >= 0 && retailRaw <= 100_000_000 ? retailRaw : null;
 
     const tiers: ModelTier[] = [];
     for (const t of TIERS) {
       const b = t.baseCol;
-      const prime   = parseNumberOrNull(grid.get(`${r}|${b}`)     ?? '');
-      const c010    = parseNumberOrNull(grid.get(`${r}|${b + 1}`) ?? '');
-      const cMnp    = parseNumberOrNull(grid.get(`${r}|${b + 2}`) ?? '');
-      const cChange = parseNumberOrNull(grid.get(`${r}|${b + 3}`) ?? '');
-      const s010    = parseNumberOrNull(grid.get(`${r}|${b + 4}`) ?? '');
-      const sMnp    = parseNumberOrNull(grid.get(`${r}|${b + 5}`) ?? '');
-      const sChange = parseNumberOrNull(grid.get(`${r}|${b + 6}`) ?? '');
+      const prime   = parseManAmountOrNull(grid.get(`${r}|${b}`)     ?? '');
+      const c010    = parseManAmountOrNull(grid.get(`${r}|${b + 1}`) ?? '');
+      const cMnp    = parseManAmountOrNull(grid.get(`${r}|${b + 2}`) ?? '');
+      const cChange = parseManAmountOrNull(grid.get(`${r}|${b + 3}`) ?? '');
+      const s010    = parseManAmountOrNull(grid.get(`${r}|${b + 4}`) ?? '');
+      const sMnp    = parseManAmountOrNull(grid.get(`${r}|${b + 5}`) ?? '');
+      const sChange = parseManAmountOrNull(grid.get(`${r}|${b + 6}`) ?? '');
 
       const common =
         c010 == null && cMnp == null && cChange == null
