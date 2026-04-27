@@ -134,10 +134,29 @@ function extractCellText(cell: RawCell): { text: string; confidence: number } {
   return { text: parts.join(' ').trim(), confidence: conf };
 }
 
+export type TileDebug = {
+  grid: { cols: number; rows: number };
+  perTile: Array<{
+    r: number;
+    c: number;
+    tableCells: number;
+    fields: number;
+    staged: number;
+  }>;
+  totalStaged: number;
+  rawRows: number;
+  rows: number;
+  K: number;
+  useReps: boolean;
+  mergedCells: number;
+  sampleColumn0Texts: string[];
+};
+
 export async function tileAndExtract(opts: {
   imageBytes: Buffer;
   spec: CropSpec;
   tileCount: 2 | 4 | 6;
+  debug?: TileDebug;
 }): Promise<ClovaImage> {
   const sharp = (await import('sharp')).default;
   const meta = await sharp(opts.imageBytes).metadata();
@@ -153,6 +172,11 @@ export async function tileAndExtract(opts: {
 
   // 분할 모드: 항상 가로 2분할 + 세로 1/2/3 = 2/4/6 tile.
   const grid = tileGrid(opts.tileCount);
+  const dbg = opts.debug;
+  if (dbg) {
+    dbg.grid = grid;
+    dbg.perTile = [];
+  }
   const overlapY = (yB - yA) * OVERLAP_RATIO;
   const overlapX = (x1 - x0) * OVERLAP_RATIO;
   const tileH = (yB - yA) / grid.rows;
@@ -245,10 +269,20 @@ export async function tileAndExtract(opts: {
       console.log(
         `[clova-tile] tile r=${r} c=${c} tableCells=${cells.length} fields=${fields.length} staged=${stagedFromTile}`,
       );
+      if (dbg) {
+        dbg.perTile.push({
+          r,
+          c,
+          tableCells: cells.length,
+          fields: fields.length,
+          staged: stagedFromTile,
+        });
+      }
     }
   }
 
   console.log(`[clova-tile] total staged=${staged.length} before row clustering`);
+  if (dbg) dbg.totalStaged = staged.length;
 
   // y 좌표로 row 재클러스터링 (원본 좌표 기준 yTolerance)
   staged.sort((a, b) => a.origY - b.origY);
@@ -286,6 +320,10 @@ export async function tileAndExtract(opts: {
     return merged;
   });
   console.log(`[clova-tile] rows=${rows.length} (rawRows=${rawRows.length})`);
+  if (dbg) {
+    dbg.rawRows = rawRows.length;
+    dbg.rows = rows.length;
+  }
 
   // 좌표 기반 column 재클러스터링.
   // tile마다 CLOVA columnIndex가 다르게 나올 수 있으므로 (예: tile A=22열, tile B=21열),
@@ -325,6 +363,17 @@ export async function tileAndExtract(opts: {
   console.log(
     `[clova-tile] mergedCells=${mergedCells.length} useReps=${useReps} K=${reps.length}`,
   );
+  if (dbg) {
+    dbg.K = reps.length;
+    dbg.useReps = useReps;
+    dbg.mergedCells = mergedCells.length;
+    // col 0 (모델코드 컬럼 후보)에 들어간 텍스트 샘플 — 파서 매칭 디버깅용
+    dbg.sampleColumn0Texts = mergedCells
+      .filter((c) => c.columnIndex === 0)
+      .slice(0, 10)
+      .map((c) => c.cellTextLines?.[0]?.cellWords?.[0]?.inferText ?? '')
+      .filter((s) => s);
+  }
 
   // 합쳐진 단일 ClovaImage (tables[0].cells에 패키징)
   return {

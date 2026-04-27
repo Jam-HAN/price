@@ -4,7 +4,7 @@ import { uploadSheetImage, downloadSheet } from '@/lib/storage';
 import { clovaExtract } from '@/lib/clova-ocr';
 import { resolveClovaParser } from '@/lib/clova-parse-router';
 import { cropAndResize, type CropSpec } from '@/lib/image-crop';
-import { tileAndExtract } from '@/lib/clova-tile';
+import { tileAndExtract, type TileDebug } from '@/lib/clova-tile';
 import { syncSheetToNormalized } from '@/lib/sync-sheet';
 import { kstToday } from '@/lib/fmt';
 
@@ -183,12 +183,25 @@ async function handle(req: Request) {
     }
 
     let clovaImg;
+    let tileDebug: TileDebug | null = null;
     if (effectiveCrop?.tile === 2 || effectiveCrop?.tile === 4 || effectiveCrop?.tile === 6) {
       // 분할 파싱: 활성 영역을 N개 tile로 잘라 각각 CLOVA 호출 → 합치기
+      tileDebug = {
+        grid: { cols: 0, rows: 0 },
+        perTile: [],
+        totalStaged: 0,
+        rawRows: 0,
+        rows: 0,
+        K: 0,
+        useReps: false,
+        mergedCells: 0,
+        sampleColumn0Texts: [],
+      };
       clovaImg = await tileAndExtract({
         imageBytes,
         spec: effectiveCrop,
         tileCount: effectiveCrop.tile,
+        debug: tileDebug,
       });
     } else {
       const bytesForOcr = effectiveCrop ? await cropAndResize(imageBytes, effectiveCrop) : imageBytes;
@@ -202,14 +215,26 @@ async function handle(req: Request) {
       images: [clovaImg],
     });
 
+    // tile mode면 진단 정보를 raw_ocr_json에 함께 보관 + 빈 결과면 error_message에 요약
+    const rawForDb = tileDebug
+      ? { ...parsed, _tile_debug: tileDebug }
+      : parsed;
+    const debugMsg = tileDebug
+      ? `tile=${effectiveCrop?.tile} grid=${tileDebug.grid.cols}x${tileDebug.grid.rows} ` +
+        `staged=${tileDebug.totalStaged} rows=${tileDebug.rows} K=${tileDebug.K} ` +
+        `mergedCells=${tileDebug.mergedCells} models=${parsed.models.length} ` +
+        `col0Sample=[${tileDebug.sampleColumn0Texts.join(', ')}]`
+      : null;
+
     await sb
       .from('price_vendor_quote_sheets')
       .update({
-        raw_ocr_json: parsed,
+        raw_ocr_json: rawForDb,
         policy_round: parsed.policy_round,
         effective_time: parsed.effective_time,
         parse_status: 'parsed',
         parsed_at: new Date().toISOString(),
+        error_message: parsed.models.length === 0 && debugMsg ? debugMsg : null,
       })
       .eq('id', sheetId);
 
