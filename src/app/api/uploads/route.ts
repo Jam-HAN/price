@@ -4,6 +4,7 @@ import { uploadSheetImage, downloadSheet } from '@/lib/storage';
 import { clovaExtract } from '@/lib/clova-ocr';
 import { resolveClovaParser } from '@/lib/clova-parse-router';
 import { cropAndResize, type CropSpec } from '@/lib/image-crop';
+import { tileAndExtract } from '@/lib/clova-tile';
 import { syncSheetToNormalized } from '@/lib/sync-sheet';
 import { kstToday } from '@/lib/fmt';
 
@@ -36,7 +37,18 @@ function parseCropSpec(input: unknown): CropSpec | null {
   const xRatio0 = xValid ? x0 : 0;
   const xRatio1 = xValid ? x1 : 1;
 
-  return { yRatio0: y0, yRatio1: y1, xRatio0, xRatio1, targetWidth: Math.round(w) };
+  // tile은 옵션 (2 또는 3). 그 외 값은 무시.
+  const tileRaw = Number(o.tile);
+  const tile = tileRaw === 2 || tileRaw === 3 ? tileRaw : undefined;
+
+  return {
+    yRatio0: y0,
+    yRatio1: y1,
+    xRatio0,
+    xRatio1,
+    targetWidth: Math.round(w),
+    ...(tile ? { tile } : {}),
+  };
 }
 
 const EXT_MAP: Record<string, string> = {
@@ -164,15 +176,25 @@ async function handle(req: Request) {
     const imageBytes = await downloadSheet(path);
     // crop 우선순위: form 전달값 → vendor 기본값(crop_spec). 없으면 원본 그대로.
     const effectiveCrop: CropSpec | null = cropSpecFromForm ?? parseCropSpec(vendor.crop_spec);
-    const bytesForOcr = effectiveCrop ? await cropAndResize(imageBytes, effectiveCrop) : imageBytes;
-    const formatForOcr = effectiveCrop ? 'png' : (ext === 'jpg' ? 'jpg' : (ext as 'png' | 'jpeg'));
 
     // 사용자가 "기본값으로 저장" 체크한 경우 벤더 crop_spec 업데이트
     if (saveCropSpec && cropSpecFromForm) {
       await sb.from('price_vendors').update({ crop_spec: cropSpecFromForm }).eq('id', vendor.id);
     }
 
-    const clovaImg = await clovaExtract({ imageBytes: bytesForOcr, format: formatForOcr });
+    let clovaImg;
+    if (effectiveCrop?.tile === 2 || effectiveCrop?.tile === 3) {
+      // 분할 파싱: 활성 영역을 N개 tile로 잘라 각각 CLOVA 호출 → 합치기
+      clovaImg = await tileAndExtract({
+        imageBytes,
+        spec: effectiveCrop,
+        tileCount: effectiveCrop.tile,
+      });
+    } else {
+      const bytesForOcr = effectiveCrop ? await cropAndResize(imageBytes, effectiveCrop) : imageBytes;
+      const formatForOcr = effectiveCrop ? 'png' : (ext === 'jpg' ? 'jpg' : (ext as 'png' | 'jpeg'));
+      clovaImg = await clovaExtract({ imageBytes: bytesForOcr, format: formatForOcr });
+    }
     const parsed = clovaRoute.parser({
       version: 'V2',
       requestId: '',

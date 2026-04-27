@@ -19,6 +19,12 @@ export type CropSpec = {
   xRatio1?: number;
   /** 결과 이미지 가로 픽셀 (비율 유지 세로 자동) */
   targetWidth: number;
+  /**
+   * 활성 영역 세로 분할 개수. 0/undefined면 단일 호출.
+   * 2 또는 3을 주면 N분할 후 각 tile을 CLOVA에 별도 호출 → 결과 좌표 환원 + 합치기.
+   * SKT처럼 텍스트 밀도 높은 시트 전체를 써야 할 때 사용.
+   */
+  tile?: number;
 };
 
 export async function cropAndResize(

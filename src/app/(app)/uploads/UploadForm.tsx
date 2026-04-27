@@ -5,12 +5,14 @@ import { useRouter } from 'next/navigation';
 import { useDropzone } from 'react-dropzone';
 import { kstToday } from '@/lib/fmt';
 
+type TileMode = 0 | 2 | 3;
 type CropSpec = {
   yRatio0: number;
   yRatio1: number;
   xRatio0: number;
   xRatio1: number;
   targetWidth: number;
+  tile: TileMode;
 };
 type StoredCropSpec = Partial<CropSpec> & Pick<CropSpec, 'yRatio0' | 'yRatio1' | 'targetWidth'>;
 type Vendor = {
@@ -73,6 +75,7 @@ export function UploadForm({ vendors }: { vendors: Vendor[] }) {
   const [xRatio0, setXRatio0] = useState(0);
   const [xRatio1, setXRatio1] = useState(1);
   const [targetWidth, setTargetWidth] = useState(DEFAULT_TARGET_WIDTH);
+  const [tile, setTile] = useState<TileMode>(0);
   const [cropEnabled, setCropEnabled] = useState(false);
   const [saveCrop, setSaveCrop] = useState(false);
 
@@ -85,6 +88,7 @@ export function UploadForm({ vendors }: { vendors: Vendor[] }) {
       setXRatio0(spec.xRatio0 ?? 0);
       setXRatio1(spec.xRatio1 ?? 1);
       setTargetWidth(spec.targetWidth);
+      setTile(spec.tile === 2 || spec.tile === 3 ? spec.tile : 0);
       setCropEnabled(true);
     } else {
       setYRatio0(0);
@@ -92,6 +96,7 @@ export function UploadForm({ vendors }: { vendors: Vendor[] }) {
       setXRatio0(0);
       setXRatio1(1);
       setTargetWidth(DEFAULT_TARGET_WIDTH);
+      setTile(0);
       setCropEnabled(false);
     }
     setSaveCrop(false);
@@ -124,8 +129,12 @@ export function UploadForm({ vendors }: { vendors: Vendor[] }) {
       fd.set('vendor_id', vendorId);
       fd.set('effective_date', date);
       fd.set('file', resized);
-      if (cropEnabled && (yRatio0 > 0 || yRatio1 < 1 || xRatio0 > 0 || xRatio1 < 1)) {
-        fd.set('crop_spec', JSON.stringify({ yRatio0, yRatio1, xRatio0, xRatio1, targetWidth }));
+      const cropChanged = yRatio0 > 0 || yRatio1 < 1 || xRatio0 > 0 || xRatio1 < 1;
+      const useTile = tile === 2 || tile === 3;
+      if (cropEnabled && (cropChanged || useTile)) {
+        const payload: Record<string, number> = { yRatio0, yRatio1, xRatio0, xRatio1, targetWidth };
+        if (useTile) payload.tile = tile;
+        fd.set('crop_spec', JSON.stringify(payload));
         if (saveCrop) fd.set('save_crop_spec', '1');
       }
       const res = await fetch('/api/uploads', { method: 'POST', body: fd });
@@ -206,6 +215,7 @@ export function UploadForm({ vendors }: { vendors: Vendor[] }) {
           xRatio0={xRatio0}
           xRatio1={xRatio1}
           targetWidth={targetWidth}
+          tile={tile}
           enabled={cropEnabled}
           saveDefault={saveCrop}
           hasSavedDefault={!!selectedVendor?.crop_spec}
@@ -215,6 +225,7 @@ export function UploadForm({ vendors }: { vendors: Vendor[] }) {
             setXRatio0(spec.xRatio0);
             setXRatio1(spec.xRatio1);
             setTargetWidth(spec.targetWidth);
+            setTile(spec.tile);
           }}
           onToggleEnabled={setCropEnabled}
           onToggleSave={setSaveCrop}
@@ -255,6 +266,7 @@ function CropEditor({
   xRatio0,
   xRatio1,
   targetWidth,
+  tile,
   enabled,
   saveDefault,
   hasSavedDefault,
@@ -268,6 +280,7 @@ function CropEditor({
   xRatio0: number;
   xRatio1: number;
   targetWidth: number;
+  tile: TileMode;
   enabled: boolean;
   saveDefault: boolean;
   hasSavedDefault: boolean;
@@ -287,13 +300,13 @@ function CropEditor({
       const ny = Math.min(1, Math.max(0, (e.clientY - rect.top) / rect.height));
       const nx = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
       if (dragging === 'top') {
-        onChange({ yRatio0: Math.min(ny, yRatio1 - 0.05), yRatio1, xRatio0, xRatio1, targetWidth });
+        onChange({ yRatio0: Math.min(ny, yRatio1 - 0.05), yRatio1, xRatio0, xRatio1, targetWidth, tile });
       } else if (dragging === 'bottom') {
-        onChange({ yRatio0, yRatio1: Math.max(ny, yRatio0 + 0.05), xRatio0, xRatio1, targetWidth });
+        onChange({ yRatio0, yRatio1: Math.max(ny, yRatio0 + 0.05), xRatio0, xRatio1, targetWidth, tile });
       } else if (dragging === 'left') {
-        onChange({ yRatio0, yRatio1, xRatio0: Math.min(nx, xRatio1 - 0.05), xRatio1, targetWidth });
+        onChange({ yRatio0, yRatio1, xRatio0: Math.min(nx, xRatio1 - 0.05), xRatio1, targetWidth, tile });
       } else {
-        onChange({ yRatio0, yRatio1, xRatio0, xRatio1: Math.max(nx, xRatio0 + 0.05), targetWidth });
+        onChange({ yRatio0, yRatio1, xRatio0, xRatio1: Math.max(nx, xRatio0 + 0.05), targetWidth, tile });
       }
     }
     function onUp() { setDragging(null); }
@@ -303,7 +316,7 @@ function CropEditor({
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
     };
-  }, [dragging, yRatio0, yRatio1, xRatio0, xRatio1, targetWidth, onChange]);
+  }, [dragging, yRatio0, yRatio1, xRatio0, xRatio1, targetWidth, tile, onChange]);
 
   return (
     <div className="rounded-xl border border-zinc-200 bg-white p-3">
@@ -333,10 +346,22 @@ function CropEditor({
                 max={2400}
                 step={100}
                 value={targetWidth}
-                onChange={(e) => onChange({ yRatio0, yRatio1, xRatio0, xRatio1, targetWidth: Number(e.target.value) || DEFAULT_TARGET_WIDTH })}
+                onChange={(e) => onChange({ yRatio0, yRatio1, xRatio0, xRatio1, targetWidth: Number(e.target.value) || DEFAULT_TARGET_WIDTH, tile })}
                 className="w-20 rounded border border-zinc-300 px-1.5 py-0.5 text-xs"
               />
               <span className="text-zinc-500">px</span>
+            </label>
+            <label className="inline-flex items-center gap-1">
+              <span className="text-zinc-600">분할:</span>
+              <select
+                value={tile}
+                onChange={(e) => onChange({ yRatio0, yRatio1, xRatio0, xRatio1, targetWidth, tile: Number(e.target.value) as TileMode })}
+                className="rounded border border-zinc-300 px-1.5 py-0.5 text-xs"
+              >
+                <option value={0}>없음 (1회 호출)</option>
+                <option value={2}>2분할 (전체 시트용)</option>
+                <option value={3}>3분할 (긴 시트용)</option>
+              </select>
             </label>
             <label className="ml-auto inline-flex cursor-pointer items-center gap-1.5">
               <input type="checkbox" checked={saveDefault} onChange={(e) => onToggleSave(e.target.checked)} />

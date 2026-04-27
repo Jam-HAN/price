@@ -4,6 +4,7 @@ import { downloadSheet } from '@/lib/storage';
 import { clovaExtract } from '@/lib/clova-ocr';
 import { resolveClovaParser } from '@/lib/clova-parse-router';
 import { cropAndResize, type CropSpec } from '@/lib/image-crop';
+import { tileAndExtract } from '@/lib/clova-tile';
 import { syncSheetToNormalized } from '@/lib/sync-sheet';
 
 export const maxDuration = 300;
@@ -26,12 +27,16 @@ function parseCropSpec(raw: unknown): CropSpec | null {
     Number.isFinite(x0) && Number.isFinite(x1) &&
     x0 >= 0 && x0 < 1 && x1 > x0 && x1 <= 1;
 
+  const tileRaw = Number(o.tile);
+  const tile = tileRaw === 2 || tileRaw === 3 ? tileRaw : undefined;
+
   return {
     yRatio0: y0,
     yRatio1: y1,
     xRatio0: xValid ? x0 : 0,
     xRatio1: xValid ? x1 : 1,
     targetWidth: Math.round(w),
+    ...(tile ? { tile } : {}),
   };
 }
 
@@ -58,14 +63,23 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
 
     const imageBytes = await downloadSheet(sheet.image_url);
     const effectiveCrop = parseCropSpec(vendor.crop_spec);
-    const bytesForOcr = effectiveCrop ? await cropAndResize(imageBytes, effectiveCrop) : imageBytes;
-    const formatForOcr = effectiveCrop
-      ? 'png'
-      : sheet.image_url.endsWith('.jpg') || sheet.image_url.endsWith('.jpeg')
-        ? 'jpg'
-        : 'png';
 
-    const clovaImg = await clovaExtract({ imageBytes: bytesForOcr, format: formatForOcr });
+    let clovaImg;
+    if (effectiveCrop?.tile === 2 || effectiveCrop?.tile === 3) {
+      clovaImg = await tileAndExtract({
+        imageBytes,
+        spec: effectiveCrop,
+        tileCount: effectiveCrop.tile,
+      });
+    } else {
+      const bytesForOcr = effectiveCrop ? await cropAndResize(imageBytes, effectiveCrop) : imageBytes;
+      const formatForOcr = effectiveCrop
+        ? 'png'
+        : sheet.image_url.endsWith('.jpg') || sheet.image_url.endsWith('.jpeg')
+          ? 'jpg'
+          : 'png';
+      clovaImg = await clovaExtract({ imageBytes: bytesForOcr, format: formatForOcr });
+    }
     const parsed = clovaRoute.parser({
       version: 'V2',
       requestId: '',
