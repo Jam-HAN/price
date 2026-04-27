@@ -3,8 +3,9 @@ import { getSupabaseAdmin } from '@/lib/supabase';
 import { uploadSheetImage, downloadSheet } from '@/lib/storage';
 import { clovaExtract } from '@/lib/clova-ocr';
 import { resolveClovaParser } from '@/lib/clova-parse-router';
-import { cropAndResize, type CropSpec } from '@/lib/image-crop';
+import { cropAndResize, type CropSpec, type CropRegion } from '@/lib/image-crop';
 import { tileAndExtract, type TileDebug } from '@/lib/clova-tile';
+import type { SheetExtraction } from '@/lib/vision-schema';
 import { syncSheetToNormalized } from '@/lib/sync-sheet';
 import { kstToday } from '@/lib/fmt';
 
@@ -41,6 +42,9 @@ function parseCropSpec(input: unknown): CropSpec | null {
   const tileRaw = Number(o.tile);
   const tile = tileRaw === 2 || tileRaw === 4 || tileRaw === 6 ? tileRaw : undefined;
 
+  // regions 옵션. 각 region은 {name, yRatio0, yRatio1, xRatio0?, xRatio1?, targetWidth?, parser_key?}.
+  const regions = parseRegions(o.regions);
+
   return {
     yRatio0: y0,
     yRatio1: y1,
@@ -48,7 +52,38 @@ function parseCropSpec(input: unknown): CropSpec | null {
     xRatio1,
     targetWidth: Math.round(w),
     ...(tile ? { tile } : {}),
+    ...(regions ? { regions } : {}),
   };
+}
+
+function parseRegions(input: unknown): CropRegion[] | undefined {
+  if (!Array.isArray(input)) return undefined;
+  const out: CropRegion[] = [];
+  for (const r of input) {
+    if (!r || typeof r !== 'object') continue;
+    const o = r as Record<string, unknown>;
+    const name = typeof o.name === 'string' ? o.name : '';
+    const y0 = Number(o.yRatio0);
+    const y1 = Number(o.yRatio1);
+    if (!name || !Number.isFinite(y0) || !Number.isFinite(y1)) continue;
+    if (y0 < 0 || y0 >= 1 || y1 <= y0 || y1 > 1) continue;
+
+    const x0 = o.xRatio0 == null ? undefined : Number(o.xRatio0);
+    const x1 = o.xRatio1 == null ? undefined : Number(o.xRatio1);
+    const tw = o.targetWidth == null ? undefined : Number(o.targetWidth);
+    const pk = typeof o.parser_key === 'string' ? o.parser_key : undefined;
+
+    out.push({
+      name,
+      yRatio0: y0,
+      yRatio1: y1,
+      ...(x0 != null && Number.isFinite(x0) ? { xRatio0: x0 } : {}),
+      ...(x1 != null && Number.isFinite(x1) ? { xRatio1: x1 } : {}),
+      ...(tw != null && Number.isFinite(tw) ? { targetWidth: Math.round(tw) } : {}),
+      ...(pk ? { parser_key: pk } : {}),
+    });
+  }
+  return out.length > 0 ? out : undefined;
 }
 
 const EXT_MAP: Record<string, string> = {
@@ -184,48 +219,123 @@ async function handle(req: Request) {
 
     let clovaImg;
     let tileDebug: TileDebug | null = null;
-    if (effectiveCrop?.tile === 2 || effectiveCrop?.tile === 4 || effectiveCrop?.tile === 6) {
-      // 분할 파싱: 활성 영역을 N개 tile로 잘라 각각 CLOVA 호출 → 합치기
-      tileDebug = {
-        grid: { cols: 0, rows: 0 },
-        perTile: [],
-        totalStaged: 0,
-        rawRows: 0,
-        rows: 0,
-        rowLengthHistogram: [],
-        K: 0,
-        useReps: false,
-        mergedCells: 0,
-        sampleColumn0Texts: [],
-      };
-      clovaImg = await tileAndExtract({
-        imageBytes,
-        spec: effectiveCrop,
-        tileCount: effectiveCrop.tile,
-        debug: tileDebug,
-      });
-    } else {
-      const bytesForOcr = effectiveCrop ? await cropAndResize(imageBytes, effectiveCrop) : imageBytes;
-      const formatForOcr = effectiveCrop ? 'png' : (ext === 'jpg' ? 'jpg' : (ext as 'png' | 'jpeg'));
-      clovaImg = await clovaExtract({ imageBytes: bytesForOcr, format: formatForOcr });
-    }
-    const parsed = clovaRoute.parser({
-      version: 'V2',
-      requestId: '',
-      timestamp: Date.now(),
-      images: [clovaImg],
-    });
+    let parsed: SheetExtraction;
+    let regionsDebug: Array<{
+      name: string;
+      parser_key: string | null;
+      models: number;
+      policies: number;
+    }> | null = null;
 
-    // tile mode면 진단 정보를 raw_ocr_json에 함께 보관 + 빈 결과면 error_message에 요약
+    if (effectiveCrop?.regions && effectiveCrop.regions.length > 0) {
+      // 영역별 별도 OCR + 별도 파서 → 결과 머지
+      const merged: SheetExtraction = {
+        policy_round: null,
+        effective_date: null,
+        effective_time: null,
+        models: [],
+        policies: [],
+      };
+      regionsDebug = [];
+      for (const region of effectiveCrop.regions) {
+        const subSpec: CropSpec = {
+          yRatio0: region.yRatio0,
+          yRatio1: region.yRatio1,
+          xRatio0: region.xRatio0 ?? effectiveCrop.xRatio0 ?? 0,
+          xRatio1: region.xRatio1 ?? effectiveCrop.xRatio1 ?? 1,
+          targetWidth: region.targetWidth ?? effectiveCrop.targetWidth,
+        };
+        const bytesForOcr = await cropAndResize(imageBytes, subSpec);
+        const regionImg = await clovaExtract({ imageBytes: bytesForOcr, format: 'png' });
+
+        const regionParserKey = region.parser_key ?? vendor.parser_key;
+        const regionRoute = resolveClovaParser(regionParserKey);
+        if (!regionRoute) {
+          regionsDebug.push({
+            name: region.name,
+            parser_key: regionParserKey,
+            models: 0,
+            policies: 0,
+          });
+          continue;
+        }
+        const regionParsed = regionRoute.parser({
+          version: 'V2',
+          requestId: '',
+          timestamp: Date.now(),
+          images: [regionImg],
+        });
+        merged.models.push(...regionParsed.models);
+        merged.policies.push(...regionParsed.policies);
+        if (regionParsed.policy_round && !merged.policy_round) {
+          merged.policy_round = regionParsed.policy_round;
+        }
+        if (regionParsed.effective_date && !merged.effective_date) {
+          merged.effective_date = regionParsed.effective_date;
+        }
+        if (regionParsed.effective_time && !merged.effective_time) {
+          merged.effective_time = regionParsed.effective_time;
+        }
+        regionsDebug.push({
+          name: region.name,
+          parser_key: regionParserKey,
+          models: regionParsed.models.length,
+          policies: regionParsed.policies.length,
+        });
+      }
+      parsed = merged;
+      // clovaImg는 regions 모드에선 미사용
+      clovaImg = { uid: 'regions', name: 'regions', inferResult: 'SUCCESS', fields: [] };
+    } else {
+      if (effectiveCrop?.tile === 2 || effectiveCrop?.tile === 4 || effectiveCrop?.tile === 6) {
+        // 분할 파싱: 활성 영역을 N개 tile로 잘라 각각 CLOVA 호출 → 합치기
+        tileDebug = {
+          grid: { cols: 0, rows: 0 },
+          perTile: [],
+          totalStaged: 0,
+          rawRows: 0,
+          rows: 0,
+          rowLengthHistogram: [],
+          K: 0,
+          useReps: false,
+          mergedCells: 0,
+          sampleColumn0Texts: [],
+        };
+        clovaImg = await tileAndExtract({
+          imageBytes,
+          spec: effectiveCrop,
+          tileCount: effectiveCrop.tile,
+          debug: tileDebug,
+        });
+      } else {
+        const bytesForOcr = effectiveCrop ? await cropAndResize(imageBytes, effectiveCrop) : imageBytes;
+        const formatForOcr = effectiveCrop ? 'png' : (ext === 'jpg' ? 'jpg' : (ext as 'png' | 'jpeg'));
+        clovaImg = await clovaExtract({ imageBytes: bytesForOcr, format: formatForOcr });
+      }
+      parsed = clovaRoute.parser({
+        version: 'V2',
+        requestId: '',
+        timestamp: Date.now(),
+        images: [clovaImg],
+      });
+    }
+
+    // tile/regions 모드면 진단 정보를 raw_ocr_json에 함께 보관 + 빈 결과면 error_message에 요약
     const rawForDb = tileDebug
       ? { ...parsed, _tile_debug: tileDebug }
-      : parsed;
+      : regionsDebug
+        ? { ...parsed, _regions_debug: regionsDebug }
+        : parsed;
     const debugMsg = tileDebug
       ? `tile=${effectiveCrop?.tile} grid=${tileDebug.grid.cols}x${tileDebug.grid.rows} ` +
         `staged=${tileDebug.totalStaged} rows=${tileDebug.rows} K=${tileDebug.K} ` +
         `mergedCells=${tileDebug.mergedCells} models=${parsed.models.length} ` +
         `col0Sample=[${tileDebug.sampleColumn0Texts.join(', ')}]`
-      : null;
+      : regionsDebug
+        ? `regions=[${regionsDebug
+            .map((r) => `${r.name}/${r.parser_key ?? 'noparser'}: m=${r.models},p=${r.policies}`)
+            .join(' | ')}]`
+        : null;
 
     await sb
       .from('price_vendor_quote_sheets')

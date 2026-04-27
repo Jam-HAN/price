@@ -25,6 +25,25 @@ export type CropSpec = {
    * SKT처럼 텍스트 밀도 높은 시트 전체를 써야 할 때 사용.
    */
   tile?: number;
+  /**
+   * 영역별 별도 OCR + 별도 파서.
+   * 시트의 모델표 영역과 정책/공시 영역을 분리해서 각각 다른 파서로 처리할 때 사용.
+   * regions가 있으면 yRatio/xRatio/tile은 무시되고 regions 우선.
+   */
+  regions?: CropRegion[];
+};
+
+export type CropRegion = {
+  /** 영역 라벨 (model_table, policy, header 등) */
+  name: string;
+  yRatio0: number;
+  yRatio1: number;
+  xRatio0?: number;
+  xRatio1?: number;
+  /** 미지정 시 vendor crop_spec.targetWidth fallback */
+  targetWidth?: number;
+  /** 미지정 시 vendor.parser_key fallback */
+  parser_key?: string;
 };
 
 export async function cropAndResize(
