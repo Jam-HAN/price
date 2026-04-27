@@ -91,13 +91,10 @@ function buildColumnRepresentatives(rows: StagedCell[][]): number[] {
     }
   }
   if (K < 2) return [];
-  // mode가 전체 row의 30% 미만이면 신뢰도 낮음 → fallback
-  if (bestFreq / rows.length < 0.3) return [];
 
   const anchors = rows.filter((r) => r.length === K);
   if (anchors.length === 0) return [];
 
-  // 각 anchor의 cells를 origX 정렬, i번째 cell의 origX 평균 = column rep_i
   const sortedAnchors = anchors.map((r) => [...r].sort((a, b) => a.origX - b.origX));
   const reps: number[] = [];
   for (let i = 0; i < K; i++) {
@@ -105,6 +102,9 @@ function buildColumnRepresentatives(rows: StagedCell[][]): number[] {
     for (const r of sortedAnchors) sum += r[i].origX;
     reps.push(sum / sortedAnchors.length);
   }
+  console.log(
+    `[clova-tile] column reps K=${K} from ${anchors.length}/${rows.length} anchor rows (modeFreq=${bestFreq})`,
+  );
   return reps;
 }
 
@@ -194,30 +194,65 @@ export async function tileAndExtract(opts: {
 
       const tables = (img as unknown as { tables?: Array<{ cells: RawCell[] }> }).tables;
       const cells: RawCell[] = tables?.[0]?.cells ?? [];
+      const fields = img.fields ?? [];
 
-      for (const cell of cells) {
-        const pos = cellAvgPos(cell);
-        if (!pos) continue;
-        const origY = pos.y / scale + origTop;
-        const origX = pos.x / scale + origLeft;
-        if (origY < keepTop || origY > keepBottom) continue;
-        if (origX < keepLeft || origX > keepRight) continue;
-        const { text, confidence } = extractCellText(cell);
-        if (!text) continue;
-        staged.push({
-          origX,
-          origY,
-          columnIndex: cell.columnIndex,
-          text,
-          confidence,
-        });
+      let stagedFromTile = 0;
+
+      if (cells.length > 0) {
+        // 정상 경로: tables[0].cells 사용
+        for (const cell of cells) {
+          const pos = cellAvgPos(cell);
+          if (!pos) continue;
+          const origY = pos.y / scale + origTop;
+          const origX = pos.x / scale + origLeft;
+          if (origY < keepTop || origY > keepBottom) continue;
+          if (origX < keepLeft || origX > keepRight) continue;
+          const { text, confidence } = extractCellText(cell);
+          if (!text) continue;
+          staged.push({
+            origX,
+            origY,
+            columnIndex: cell.columnIndex,
+            text,
+            confidence,
+          });
+          stagedFromTile++;
+        }
+      } else {
+        // Fallback: CLOVA가 절반 자른 tile에서 표 인식 실패 → fields 토큰 사용
+        for (const f of fields) {
+          const verts = f.boundingPoly?.vertices ?? [];
+          if (!verts.length) continue;
+          const avgX = verts.reduce((s, v) => s + v.x, 0) / verts.length;
+          const avgY = verts.reduce((s, v) => s + v.y, 0) / verts.length;
+          const origY = avgY / scale + origTop;
+          const origX = avgX / scale + origLeft;
+          if (origY < keepTop || origY > keepBottom) continue;
+          if (origX < keepLeft || origX > keepRight) continue;
+          const text = (f.inferText ?? '').trim();
+          if (!text) continue;
+          staged.push({
+            origX,
+            origY,
+            columnIndex: -1, // 무의미 — 이후 column reclustering이 처리
+            text,
+            confidence: f.inferConfidence ?? 0,
+          });
+          stagedFromTile++;
+        }
       }
+
+      console.log(
+        `[clova-tile] tile r=${r} c=${c} tableCells=${cells.length} fields=${fields.length} staged=${stagedFromTile}`,
+      );
     }
   }
 
+  console.log(`[clova-tile] total staged=${staged.length} before row clustering`);
+
   // y 좌표로 row 재클러스터링 (원본 좌표 기준 yTolerance)
   staged.sort((a, b) => a.origY - b.origY);
-  const rows: StagedCell[][] = [];
+  const rawRows: StagedCell[][] = [];
   let current: StagedCell[] = [];
   let avgY = -Infinity;
   for (const c of staged) {
@@ -225,12 +260,32 @@ export async function tileAndExtract(opts: {
       current.push(c);
       avgY = current.reduce((s, x) => s + x.origY, 0) / current.length;
     } else {
-      rows.push(current);
+      rawRows.push(current);
       current = [c];
       avgY = c.origY;
     }
   }
-  if (current.length) rows.push(current);
+  if (current.length) rawRows.push(current);
+
+  // Token stitching: fields-fallback에선 같은 셀의 토큰들이 origX 0~수px 차이로 분리됨.
+  // row 안에서 origX 정렬 후 인접 차이가 작으면 하나의 cell로 결합.
+  const STITCH_X_GAP_PX = 8;
+  const rows: StagedCell[][] = rawRows.map((row) => {
+    const sorted = [...row].sort((a, b) => a.origX - b.origX);
+    const merged: StagedCell[] = [];
+    for (const c of sorted) {
+      const prev = merged[merged.length - 1];
+      if (prev && c.origX - prev.origX < STITCH_X_GAP_PX) {
+        prev.text = (prev.text + ' ' + c.text).trim();
+        prev.origX = (prev.origX + c.origX) / 2;
+        prev.confidence = Math.max(prev.confidence, c.confidence);
+      } else {
+        merged.push({ ...c });
+      }
+    }
+    return merged;
+  });
+  console.log(`[clova-tile] rows=${rows.length} (rawRows=${rawRows.length})`);
 
   // 좌표 기반 column 재클러스터링.
   // tile마다 CLOVA columnIndex가 다르게 나올 수 있으므로 (예: tile A=22열, tile B=21열),
@@ -242,10 +297,17 @@ export async function tileAndExtract(opts: {
   const mergedCells: RawCell[] = [];
   rows.forEach((row, rowIndex) => {
     const byCol = new Map<number, StagedCell>();
-    for (const c of row) {
-      const colIdx = useReps ? assignToColumn(c.origX, reps) : c.columnIndex;
-      const prev = byCol.get(colIdx);
-      if (!prev || c.confidence > prev.confidence) byCol.set(colIdx, c);
+    if (useReps) {
+      for (const c of row) {
+        const colIdx = assignToColumn(c.origX, reps);
+        const prev = byCol.get(colIdx);
+        if (!prev || c.confidence > prev.confidence) byCol.set(colIdx, c);
+      }
+    } else {
+      // 최종 fallback: row 안에서 origX 순으로 columnIndex 부여.
+      // Global하게 정렬되진 않지만 collapse(-1로 수렴)는 방지.
+      const sorted = [...row].sort((a, b) => a.origX - b.origX);
+      sorted.forEach((c, i) => byCol.set(i, c));
     }
     const sortedCols = Array.from(byCol.entries()).sort((a, b) => a[0] - b[0]);
     for (const [colIdx, c] of sortedCols) {
@@ -260,6 +322,9 @@ export async function tileAndExtract(opts: {
       });
     }
   });
+  console.log(
+    `[clova-tile] mergedCells=${mergedCells.length} useReps=${useReps} K=${reps.length}`,
+  );
 
   // 합쳐진 단일 ClovaImage (tables[0].cells에 패키징)
   return {
