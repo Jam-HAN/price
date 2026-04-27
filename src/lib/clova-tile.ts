@@ -58,6 +58,57 @@ function cellAvgPos(cell: RawCell): Vertex | null {
   };
 }
 
+/**
+ * 행별 cell 수의 mode = K(컬럼 개수)로 추정.
+ * cell 수가 K인 row들을 anchor로 잡고, anchor의 i번째 cell origX 평균을 column i representative로.
+ * mode 신뢰가 낮으면(K<2 또는 anchor 비율 낮음) 빈 배열 반환 → caller가 columnIndex로 fallback.
+ */
+function buildColumnRepresentatives(rows: StagedCell[][]): number[] {
+  if (rows.length === 0) return [];
+
+  const counts = rows.map((r) => r.length);
+  const freq = new Map<number, number>();
+  for (const n of counts) freq.set(n, (freq.get(n) ?? 0) + 1);
+
+  let K = 0;
+  let bestFreq = 0;
+  for (const [n, f] of freq) {
+    if (n >= 2 && f > bestFreq) {
+      K = n;
+      bestFreq = f;
+    }
+  }
+  if (K < 2) return [];
+  // mode가 전체 row의 30% 미만이면 신뢰도 낮음 → fallback
+  if (bestFreq / rows.length < 0.3) return [];
+
+  const anchors = rows.filter((r) => r.length === K);
+  if (anchors.length === 0) return [];
+
+  // 각 anchor의 cells를 origX 정렬, i번째 cell의 origX 평균 = column rep_i
+  const sortedAnchors = anchors.map((r) => [...r].sort((a, b) => a.origX - b.origX));
+  const reps: number[] = [];
+  for (let i = 0; i < K; i++) {
+    let sum = 0;
+    for (const r of sortedAnchors) sum += r[i].origX;
+    reps.push(sum / sortedAnchors.length);
+  }
+  return reps;
+}
+
+function assignToColumn(x: number, reps: number[]): number {
+  let bestIdx = 0;
+  let bestDist = Infinity;
+  for (let i = 0; i < reps.length; i++) {
+    const d = Math.abs(x - reps[i]);
+    if (d < bestDist) {
+      bestDist = d;
+      bestIdx = i;
+    }
+  }
+  return bestIdx;
+}
+
 function extractCellText(cell: RawCell): { text: string; confidence: number } {
   const parts: string[] = [];
   const confs: number[] = [];
@@ -163,21 +214,26 @@ export async function tileAndExtract(opts: {
   }
   if (current.length) rows.push(current);
 
-  // 각 row 내 columnIndex 충돌(오버랩 edge) 시 confidence 우선
+  // 좌표 기반 column 재클러스터링.
+  // tile마다 CLOVA columnIndex가 다르게 나올 수 있으므로 (예: tile A=22열, tile B=21열),
+  // 행별 cell 수의 mode를 column count K로 추정 → K개 row를 anchor로 → 각 anchor의
+  // origX 평균으로 column representative를 만들고 모든 cell을 가장 가까운 rep에 재할당.
+  const reps = buildColumnRepresentatives(rows);
+  const useReps = reps.length >= 2;
+
   const mergedCells: RawCell[] = [];
   rows.forEach((row, rowIndex) => {
     const byCol = new Map<number, StagedCell>();
     for (const c of row) {
-      const prev = byCol.get(c.columnIndex);
-      if (!prev || c.confidence > prev.confidence) byCol.set(c.columnIndex, c);
+      const colIdx = useReps ? assignToColumn(c.origX, reps) : c.columnIndex;
+      const prev = byCol.get(colIdx);
+      if (!prev || c.confidence > prev.confidence) byCol.set(colIdx, c);
     }
-    const sortedCols = Array.from(byCol.values()).sort(
-      (a, b) => a.columnIndex - b.columnIndex,
-    );
-    for (const c of sortedCols) {
+    const sortedCols = Array.from(byCol.entries()).sort((a, b) => a[0] - b[0]);
+    for (const [colIdx, c] of sortedCols) {
       mergedCells.push({
         rowIndex,
-        columnIndex: c.columnIndex,
+        columnIndex: colIdx,
         cellTextLines: [
           {
             cellWords: [{ inferText: c.text, inferConfidence: c.confidence }],
