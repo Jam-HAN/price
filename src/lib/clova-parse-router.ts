@@ -15,6 +15,7 @@ import { parseClovaNear } from './clova-parse-kt-near';
 import { parseClovaCheongdam } from './clova-parse-skt-cheongdam';
 import { parseClovaCheongdamPolicy } from './clova-parse-skt-cheongdam-policy';
 import { parseClovaPes } from './clova-parse-skt-pes';
+import { parseClovaPesPolicy } from './clova-parse-skt-pes-policy';
 
 type ClovaParser = (resp: ClovaResponse) => SheetExtraction;
 
@@ -31,6 +32,7 @@ const PARSERS: Record<string, ClovaRouteEntry> = {
   'skt-cheongdam': { parser: parseClovaCheongdam, label: 'SKT 청담' },
   'skt-cheongdam-policy': { parser: parseClovaCheongdamPolicy, label: 'SKT 청담 정책 (placeholder)' },
   'skt-pes':       { parser: parseClovaPes,       label: 'SKT 피에스' },
+  'skt-pes-policy': { parser: parseClovaPesPolicy, label: 'SKT 피에스 정책 (placeholder)' },
 };
 
 export function resolveClovaParser(parserKey: string | null | undefined): ClovaRouteEntry | null {

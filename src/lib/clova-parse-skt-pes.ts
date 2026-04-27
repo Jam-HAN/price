@@ -55,6 +55,27 @@ function parseNumberOrNull(s: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+/**
+ * 피에스 파서 전용 sanity check.
+ * 공통/선약 만원 단위 raw 값. 정상 0~80, 1000(=1천만원) 초과는 OCR 이상으로 간주 → null.
+ */
+function parseManAmountOrNull(s: string): number | null {
+  const n = parseNumberOrNull(s);
+  if (n == null) return null;
+  if (n < 0 || n > 1000) return null;
+  return n;
+}
+
+/**
+ * 공시지원금 천원 단위 raw 값. 정상 0~500 정도, 10000(=1천만원) 초과는 OCR 이상.
+ */
+function parseChunAmountOrNull(s: string): number | null {
+  const n = parseNumberOrNull(s);
+  if (n == null) return null;
+  if (n < 0 || n > 10_000) return null;
+  return n;
+}
+
 const TIERS: Array<{ code: string; baseCol: number }> = [
   { code: '요금제붐업', baseCol: 4 },
   { code: 'I_100',      baseCol: 11 },
@@ -76,31 +97,37 @@ export function parseClovaPes(resp: ClovaResponse): SheetExtraction {
   const models: ParsedModel[] = [];
 
   for (let r = 0; r <= maxRow; r++) {
-    const modelCode = (grid.get(`${r}|1`) ?? '').trim();
+    // OCR이 인접 행 모델코드를 한 셀에 합치는 케이스 → 첫 토큰만 채택
+    const modelCode = (grid.get(`${r}|1`) ?? '').trim().split(/\s+/)[0];
     if (!/^(SM-|UIP|UAW|AT-|IP[A\d]|AIP)/.test(modelCode)) continue;
 
     const nickname = (grid.get(`${r}|2`) ?? '').trim();
     // 출고가: "1,254.0" (천단위) → 1,254,000원. "1.254.0" 오인식도 수용 (숫자만 추출 후 × 1000)
     const retailRaw = (grid.get(`${r}|3`) ?? '').trim();
     const retailThousands = parseNumberOrNull(retailRaw);
-    const retail_price_krw =
+    const retailComputed =
       retailThousands != null
         ? Math.round(retailThousands * 1_000)
         : (() => {
             const digits = retailRaw.replace(/\D/g, '');
             return digits ? Number(digits) : null;
           })();
+    // 출고가 sanity: 0~1억원 범위 (1억 초과는 OCR 오류)
+    const retail_price_krw =
+      retailComputed != null && retailComputed >= 0 && retailComputed <= 100_000_000
+        ? retailComputed
+        : null;
 
     const tiers: ModelTier[] = [];
     for (const t of TIERS) {
       const b = t.baseCol;
-      const subsidy = parseNumberOrNull(grid.get(`${r}|${b}`)     ?? '');
-      const c010    = parseNumberOrNull(grid.get(`${r}|${b + 1}`) ?? '');
-      const cMnp    = parseNumberOrNull(grid.get(`${r}|${b + 2}`) ?? '');
-      const cChange = parseNumberOrNull(grid.get(`${r}|${b + 3}`) ?? '');
-      const s010    = parseNumberOrNull(grid.get(`${r}|${b + 4}`) ?? '');
-      const sMnp    = parseNumberOrNull(grid.get(`${r}|${b + 5}`) ?? '');
-      const sChange = parseNumberOrNull(grid.get(`${r}|${b + 6}`) ?? '');
+      const subsidy = parseChunAmountOrNull(grid.get(`${r}|${b}`)     ?? '');
+      const c010    = parseManAmountOrNull(grid.get(`${r}|${b + 1}`) ?? '');
+      const cMnp    = parseManAmountOrNull(grid.get(`${r}|${b + 2}`) ?? '');
+      const cChange = parseManAmountOrNull(grid.get(`${r}|${b + 3}`) ?? '');
+      const s010    = parseManAmountOrNull(grid.get(`${r}|${b + 4}`) ?? '');
+      const sMnp    = parseManAmountOrNull(grid.get(`${r}|${b + 5}`) ?? '');
+      const sChange = parseManAmountOrNull(grid.get(`${r}|${b + 6}`) ?? '');
 
       const common =
         c010 == null && cMnp == null && cChange == null
