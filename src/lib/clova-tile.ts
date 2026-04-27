@@ -33,7 +33,7 @@ type StagedCell = {
   confidence: number;
 };
 
-const Y_TOLERANCE_ORIG_PX = 12;
+const Y_TOLERANCE_ORIG_PX = 40;
 const OVERLAP_RATIO = 0.05;
 
 /**
