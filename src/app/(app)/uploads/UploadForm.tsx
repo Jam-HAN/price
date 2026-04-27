@@ -359,9 +359,9 @@ function CropEditor({
                 className="rounded border border-zinc-300 px-1.5 py-0.5 text-xs"
               >
                 <option value={0}>없음 (1회 호출)</option>
-                <option value={2}>2분할</option>
-                <option value={4}>4분할</option>
-                <option value={6}>6분할 (긴 시트용)</option>
+                <option value={2}>2분할 (2×1)</option>
+                <option value={4}>4분할 (2×2)</option>
+                <option value={6}>6분할 (2×3, 긴 시트용)</option>
               </select>
             </label>
             <label className="ml-auto inline-flex cursor-pointer items-center gap-1.5">
