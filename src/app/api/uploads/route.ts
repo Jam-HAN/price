@@ -37,9 +37,9 @@ function parseCropSpec(input: unknown): CropSpec | null {
   const xRatio0 = xValid ? x0 : 0;
   const xRatio1 = xValid ? x1 : 1;
 
-  // tile은 옵션 (2 또는 3). 그 외 값은 무시.
+  // tile은 옵션 (2/4/6). 그 외 값은 무시.
   const tileRaw = Number(o.tile);
-  const tile = tileRaw === 2 || tileRaw === 3 ? tileRaw : undefined;
+  const tile = tileRaw === 2 || tileRaw === 4 || tileRaw === 6 ? tileRaw : undefined;
 
   return {
     yRatio0: y0,
@@ -183,7 +183,7 @@ async function handle(req: Request) {
     }
 
     let clovaImg;
-    if (effectiveCrop?.tile === 2 || effectiveCrop?.tile === 3) {
+    if (effectiveCrop?.tile === 2 || effectiveCrop?.tile === 4 || effectiveCrop?.tile === 6) {
       // 분할 파싱: 활성 영역을 N개 tile로 잘라 각각 CLOVA 호출 → 합치기
       clovaImg = await tileAndExtract({
         imageBytes,

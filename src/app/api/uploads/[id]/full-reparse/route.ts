@@ -28,7 +28,7 @@ function parseCropSpec(raw: unknown): CropSpec | null {
     x0 >= 0 && x0 < 1 && x1 > x0 && x1 <= 1;
 
   const tileRaw = Number(o.tile);
-  const tile = tileRaw === 2 || tileRaw === 3 ? tileRaw : undefined;
+  const tile = tileRaw === 2 || tileRaw === 4 || tileRaw === 6 ? tileRaw : undefined;
 
   return {
     yRatio0: y0,
@@ -65,7 +65,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     const effectiveCrop = parseCropSpec(vendor.crop_spec);
 
     let clovaImg;
-    if (effectiveCrop?.tile === 2 || effectiveCrop?.tile === 3) {
+    if (effectiveCrop?.tile === 2 || effectiveCrop?.tile === 4 || effectiveCrop?.tile === 6) {
       clovaImg = await tileAndExtract({
         imageBytes,
         spec: effectiveCrop,

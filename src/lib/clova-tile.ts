@@ -125,7 +125,7 @@ function extractCellText(cell: RawCell): { text: string; confidence: number } {
 export async function tileAndExtract(opts: {
   imageBytes: Buffer;
   spec: CropSpec;
-  tileCount: 2 | 3;
+  tileCount: 2 | 4 | 6;
 }): Promise<ClovaImage> {
   const sharp = (await import('sharp')).default;
   const meta = await sharp(opts.imageBytes).metadata();

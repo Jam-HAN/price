@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useDropzone } from 'react-dropzone';
 import { kstToday } from '@/lib/fmt';
 
-type TileMode = 0 | 2 | 3;
+type TileMode = 0 | 2 | 4 | 6;
 type CropSpec = {
   yRatio0: number;
   yRatio1: number;
@@ -88,7 +88,7 @@ export function UploadForm({ vendors }: { vendors: Vendor[] }) {
       setXRatio0(spec.xRatio0 ?? 0);
       setXRatio1(spec.xRatio1 ?? 1);
       setTargetWidth(spec.targetWidth);
-      setTile(spec.tile === 2 || spec.tile === 3 ? spec.tile : 0);
+      setTile(spec.tile === 2 || spec.tile === 4 || spec.tile === 6 ? spec.tile : 0);
       setCropEnabled(true);
     } else {
       setYRatio0(0);
@@ -130,7 +130,7 @@ export function UploadForm({ vendors }: { vendors: Vendor[] }) {
       fd.set('effective_date', date);
       fd.set('file', resized);
       const cropChanged = yRatio0 > 0 || yRatio1 < 1 || xRatio0 > 0 || xRatio1 < 1;
-      const useTile = tile === 2 || tile === 3;
+      const useTile = tile === 2 || tile === 4 || tile === 6;
       if (cropEnabled && (cropChanged || useTile)) {
         const payload: Record<string, number> = { yRatio0, yRatio1, xRatio0, xRatio1, targetWidth };
         if (useTile) payload.tile = tile;
@@ -359,8 +359,9 @@ function CropEditor({
                 className="rounded border border-zinc-300 px-1.5 py-0.5 text-xs"
               >
                 <option value={0}>없음 (1회 호출)</option>
-                <option value={2}>2분할 (전체 시트용)</option>
-                <option value={3}>3분할 (긴 시트용)</option>
+                <option value={2}>2분할</option>
+                <option value={4}>4분할</option>
+                <option value={6}>6분할 (긴 시트용)</option>
               </select>
             </label>
             <label className="ml-auto inline-flex cursor-pointer items-center gap-1.5">
