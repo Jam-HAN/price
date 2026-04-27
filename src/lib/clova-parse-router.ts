@@ -13,6 +13,7 @@ import { parseClovaAnseong } from './clova-parse-lgu-anseong';
 import { parseClovaBanchu } from './clova-parse-kt-banchu';
 import { parseClovaNear } from './clova-parse-kt-near';
 import { parseClovaCheongdam } from './clova-parse-skt-cheongdam';
+import { parseClovaCheongdamPolicy } from './clova-parse-skt-cheongdam-policy';
 import { parseClovaPes } from './clova-parse-skt-pes';
 
 type ClovaParser = (resp: ClovaResponse) => SheetExtraction;
@@ -28,6 +29,7 @@ const PARSERS: Record<string, ClovaRouteEntry> = {
   'kt-banchu':     { parser: parseClovaBanchu,    label: 'KT 반추' },
   'kt-near':       { parser: parseClovaNear,      label: 'KT 니어' },
   'skt-cheongdam': { parser: parseClovaCheongdam, label: 'SKT 청담' },
+  'skt-cheongdam-policy': { parser: parseClovaCheongdamPolicy, label: 'SKT 청담 정책 (placeholder)' },
   'skt-pes':       { parser: parseClovaPes,       label: 'SKT 피에스' },
 };
 

@@ -225,6 +225,8 @@ async function handle(req: Request) {
       parser_key: string | null;
       models: number;
       policies: number;
+      tableCells: number;
+      sampleCells: Array<{ r: number; c: number; t: string }>;
     }> | null = null;
 
     if (effectiveCrop?.regions && effectiveCrop.regions.length > 0) {
@@ -248,6 +250,18 @@ async function handle(req: Request) {
         const bytesForOcr = await cropAndResize(imageBytes, subSpec);
         const regionImg = await clovaExtract({ imageBytes: bytesForOcr, format: 'png' });
 
+        // OCR 결과에서 cells dump (placeholder/미등록 파서 region에서 실제 데이터 분석용)
+        const cellsRaw =
+          (regionImg as unknown as { tables?: Array<{ cells: Array<{ rowIndex: number; columnIndex: number; cellTextLines?: Array<{ cellWords?: Array<{ inferText?: string }> }> }> }> }).tables?.[0]?.cells ?? [];
+        const sampleCells = cellsRaw.slice(0, 200).map((c) => ({
+          r: c.rowIndex,
+          c: c.columnIndex,
+          t: (c.cellTextLines ?? [])
+            .flatMap((l) => (l.cellWords ?? []).map((w) => w.inferText ?? ''))
+            .join(' ')
+            .trim(),
+        }));
+
         const regionParserKey = region.parser_key ?? vendor.parser_key;
         const regionRoute = resolveClovaParser(regionParserKey);
         if (!regionRoute) {
@@ -256,6 +270,8 @@ async function handle(req: Request) {
             parser_key: regionParserKey,
             models: 0,
             policies: 0,
+            tableCells: cellsRaw.length,
+            sampleCells,
           });
           continue;
         }
@@ -281,6 +297,8 @@ async function handle(req: Request) {
           parser_key: regionParserKey,
           models: regionParsed.models.length,
           policies: regionParsed.policies.length,
+          tableCells: cellsRaw.length,
+          sampleCells,
         });
       }
       parsed = merged;
