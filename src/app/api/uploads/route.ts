@@ -24,7 +24,19 @@ function parseCropSpec(input: unknown): CropSpec | null {
   if (!Number.isFinite(y0) || !Number.isFinite(y1) || !Number.isFinite(w)) return null;
   if (y0 < 0 || y0 >= 1 || y1 <= y0 || y1 > 1) return null;
   if (w < 400 || w > 4000) return null;
-  return { yRatio0: y0, yRatio1: y1, targetWidth: Math.round(w) };
+
+  // X축은 옵션. 미지정/잘못된 값이면 0~1 풀 폭으로 처리.
+  const x0Raw = o.xRatio0;
+  const x1Raw = o.xRatio1;
+  const x0 = x0Raw == null ? 0 : Number(x0Raw);
+  const x1 = x1Raw == null ? 1 : Number(x1Raw);
+  const xValid =
+    Number.isFinite(x0) && Number.isFinite(x1) &&
+    x0 >= 0 && x0 < 1 && x1 > x0 && x1 <= 1;
+  const xRatio0 = xValid ? x0 : 0;
+  const xRatio1 = xValid ? x1 : 1;
+
+  return { yRatio0: y0, yRatio1: y1, xRatio0, xRatio1, targetWidth: Math.round(w) };
 }
 
 const EXT_MAP: Record<string, string> = {

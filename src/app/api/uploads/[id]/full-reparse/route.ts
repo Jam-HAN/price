@@ -17,7 +17,22 @@ function parseCropSpec(raw: unknown): CropSpec | null {
   if (!Number.isFinite(y0) || !Number.isFinite(y1) || !Number.isFinite(w)) return null;
   if (y0 < 0 || y0 >= 1 || y1 <= y0 || y1 > 1) return null;
   if (w < 400 || w > 4000) return null;
-  return { yRatio0: y0, yRatio1: y1, targetWidth: Math.round(w) };
+
+  const x0Raw = o.xRatio0;
+  const x1Raw = o.xRatio1;
+  const x0 = x0Raw == null ? 0 : Number(x0Raw);
+  const x1 = x1Raw == null ? 1 : Number(x1Raw);
+  const xValid =
+    Number.isFinite(x0) && Number.isFinite(x1) &&
+    x0 >= 0 && x0 < 1 && x1 > x0 && x1 <= 1;
+
+  return {
+    yRatio0: y0,
+    yRatio1: y1,
+    xRatio0: xValid ? x0 : 0,
+    xRatio1: xValid ? x1 : 1,
+    targetWidth: Math.round(w),
+  };
 }
 
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {

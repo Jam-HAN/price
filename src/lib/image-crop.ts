@@ -13,6 +13,10 @@ export type CropSpec = {
   yRatio0: number;
   /** 원본 세로 높이 대비 끝 비율 (0~1) */
   yRatio1: number;
+  /** 원본 가로 폭 대비 시작 비율 (0~1, 미지정 시 0) */
+  xRatio0?: number;
+  /** 원본 가로 폭 대비 끝 비율 (0~1, 미지정 시 1) */
+  xRatio1?: number;
   /** 결과 이미지 가로 픽셀 (비율 유지 세로 자동) */
   targetWidth: number;
 };
@@ -33,8 +37,14 @@ export async function cropAndResize(
   const bottom = Math.min(height, Math.round(height * spec.yRatio1));
   const cropH = Math.max(1, bottom - top);
 
+  const x0 = spec.xRatio0 ?? 0;
+  const x1 = spec.xRatio1 ?? 1;
+  const left = Math.max(0, Math.round(width * x0));
+  const right = Math.min(width, Math.round(width * x1));
+  const cropW = Math.max(1, right - left);
+
   return await sharp(src)
-    .extract({ left: 0, top, width, height: cropH })
+    .extract({ left, top, width: cropW, height: cropH })
     .resize({ width: spec.targetWidth, fit: 'inside' })
     .png()
     .toBuffer();

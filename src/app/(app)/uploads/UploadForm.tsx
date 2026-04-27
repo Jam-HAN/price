@@ -5,12 +5,19 @@ import { useRouter } from 'next/navigation';
 import { useDropzone } from 'react-dropzone';
 import { kstToday } from '@/lib/fmt';
 
-type CropSpec = { yRatio0: number; yRatio1: number; targetWidth: number };
+type CropSpec = {
+  yRatio0: number;
+  yRatio1: number;
+  xRatio0: number;
+  xRatio1: number;
+  targetWidth: number;
+};
+type StoredCropSpec = Partial<CropSpec> & Pick<CropSpec, 'yRatio0' | 'yRatio1' | 'targetWidth'>;
 type Vendor = {
   id: string;
   name: string;
   carrier: string;
-  crop_spec: CropSpec | null;
+  crop_spec: StoredCropSpec | null;
 };
 
 const MAX_DIM = 2400;
@@ -60,9 +67,11 @@ export function UploadForm({ vendors }: { vendors: Vendor[] }) {
     [vendors, vendorId],
   );
 
-  // yRatio0/1, targetWidth 초기값은 벤더 crop_spec에서. 없으면 전체 영역(0~1)
+  // y/x Ratio + targetWidth 초기값은 벤더 crop_spec에서. 없으면 전체 영역(0~1)
   const [yRatio0, setYRatio0] = useState(0);
   const [yRatio1, setYRatio1] = useState(1);
+  const [xRatio0, setXRatio0] = useState(0);
+  const [xRatio1, setXRatio1] = useState(1);
   const [targetWidth, setTargetWidth] = useState(DEFAULT_TARGET_WIDTH);
   const [cropEnabled, setCropEnabled] = useState(false);
   const [saveCrop, setSaveCrop] = useState(false);
@@ -73,11 +82,15 @@ export function UploadForm({ vendors }: { vendors: Vendor[] }) {
     if (spec) {
       setYRatio0(spec.yRatio0);
       setYRatio1(spec.yRatio1);
+      setXRatio0(spec.xRatio0 ?? 0);
+      setXRatio1(spec.xRatio1 ?? 1);
       setTargetWidth(spec.targetWidth);
       setCropEnabled(true);
     } else {
       setYRatio0(0);
       setYRatio1(1);
+      setXRatio0(0);
+      setXRatio1(1);
       setTargetWidth(DEFAULT_TARGET_WIDTH);
       setCropEnabled(false);
     }
@@ -111,8 +124,8 @@ export function UploadForm({ vendors }: { vendors: Vendor[] }) {
       fd.set('vendor_id', vendorId);
       fd.set('effective_date', date);
       fd.set('file', resized);
-      if (cropEnabled && (yRatio0 > 0 || yRatio1 < 1)) {
-        fd.set('crop_spec', JSON.stringify({ yRatio0, yRatio1, targetWidth }));
+      if (cropEnabled && (yRatio0 > 0 || yRatio1 < 1 || xRatio0 > 0 || xRatio1 < 1)) {
+        fd.set('crop_spec', JSON.stringify({ yRatio0, yRatio1, xRatio0, xRatio1, targetWidth }));
         if (saveCrop) fd.set('save_crop_spec', '1');
       }
       const res = await fetch('/api/uploads', { method: 'POST', body: fd });
@@ -190,6 +203,8 @@ export function UploadForm({ vendors }: { vendors: Vendor[] }) {
           src={preview}
           yRatio0={yRatio0}
           yRatio1={yRatio1}
+          xRatio0={xRatio0}
+          xRatio1={xRatio1}
           targetWidth={targetWidth}
           enabled={cropEnabled}
           saveDefault={saveCrop}
@@ -197,6 +212,8 @@ export function UploadForm({ vendors }: { vendors: Vendor[] }) {
           onChange={(spec) => {
             setYRatio0(spec.yRatio0);
             setYRatio1(spec.yRatio1);
+            setXRatio0(spec.xRatio0);
+            setXRatio1(spec.xRatio1);
             setTargetWidth(spec.targetWidth);
           }}
           onToggleEnabled={setCropEnabled}
@@ -225,13 +242,18 @@ export function UploadForm({ vendors }: { vendors: Vendor[] }) {
 }
 
 /**
- * 이미지 위에 드래그 가능한 상/하 핸들을 띄워 모델표 y 범위만 선택.
- * 가로는 항상 원본 전체(0~1)로 고정, 세로만 yRatio0/1 조정.
+ * 이미지 위에 드래그 가능한 상/하/좌/우 4개 핸들을 띄워 모델표 영역만 선택.
+ * 세로(yRatio0/1) + 가로(xRatio0/1) 모두 조정 가능. 텍스트 밀도가 높은 SKT
+ * 시트에서 좌측 안내문/우측 정책 컬럼 잘라낼 때 가로 크롭이 유효.
  */
+type DragKind = 'top' | 'bottom' | 'left' | 'right';
+
 function CropEditor({
   src,
   yRatio0,
   yRatio1,
+  xRatio0,
+  xRatio1,
   targetWidth,
   enabled,
   saveDefault,
@@ -243,6 +265,8 @@ function CropEditor({
   src: string;
   yRatio0: number;
   yRatio1: number;
+  xRatio0: number;
+  xRatio1: number;
   targetWidth: number;
   enabled: boolean;
   saveDefault: boolean;
@@ -252,7 +276,7 @@ function CropEditor({
   onToggleSave: (v: boolean) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [dragging, setDragging] = useState<'top' | 'bottom' | null>(null);
+  const [dragging, setDragging] = useState<DragKind | null>(null);
 
   useEffect(() => {
     if (!dragging) return;
@@ -260,11 +284,16 @@ function CropEditor({
       const el = containerRef.current;
       if (!el) return;
       const rect = el.getBoundingClientRect();
-      const y = Math.min(1, Math.max(0, (e.clientY - rect.top) / rect.height));
+      const ny = Math.min(1, Math.max(0, (e.clientY - rect.top) / rect.height));
+      const nx = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
       if (dragging === 'top') {
-        onChange({ yRatio0: Math.min(y, yRatio1 - 0.05), yRatio1, targetWidth });
+        onChange({ yRatio0: Math.min(ny, yRatio1 - 0.05), yRatio1, xRatio0, xRatio1, targetWidth });
+      } else if (dragging === 'bottom') {
+        onChange({ yRatio0, yRatio1: Math.max(ny, yRatio0 + 0.05), xRatio0, xRatio1, targetWidth });
+      } else if (dragging === 'left') {
+        onChange({ yRatio0, yRatio1, xRatio0: Math.min(nx, xRatio1 - 0.05), xRatio1, targetWidth });
       } else {
-        onChange({ yRatio0, yRatio1: Math.max(y, yRatio0 + 0.05), targetWidth });
+        onChange({ yRatio0, yRatio1, xRatio0, xRatio1: Math.max(nx, xRatio0 + 0.05), targetWidth });
       }
     }
     function onUp() { setDragging(null); }
@@ -274,7 +303,7 @@ function CropEditor({
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
     };
-  }, [dragging, yRatio0, yRatio1, targetWidth, onChange]);
+  }, [dragging, yRatio0, yRatio1, xRatio0, xRatio1, targetWidth, onChange]);
 
   return (
     <div className="rounded-xl border border-zinc-200 bg-white p-3">
@@ -293,6 +322,9 @@ function CropEditor({
             <span className="text-zinc-600">
               y: <b className="mono">{(yRatio0 * 100).toFixed(1)}%</b> ~ <b className="mono">{(yRatio1 * 100).toFixed(1)}%</b>
             </span>
+            <span className="text-zinc-600">
+              x: <b className="mono">{(xRatio0 * 100).toFixed(1)}%</b> ~ <b className="mono">{(xRatio1 * 100).toFixed(1)}%</b>
+            </span>
             <label className="inline-flex items-center gap-1">
               <span className="text-zinc-600">가로:</span>
               <input
@@ -301,7 +333,7 @@ function CropEditor({
                 max={2400}
                 step={100}
                 value={targetWidth}
-                onChange={(e) => onChange({ yRatio0, yRatio1, targetWidth: Number(e.target.value) || DEFAULT_TARGET_WIDTH })}
+                onChange={(e) => onChange({ yRatio0, yRatio1, xRatio0, xRatio1, targetWidth: Number(e.target.value) || DEFAULT_TARGET_WIDTH })}
                 className="w-20 rounded border border-zinc-300 px-1.5 py-0.5 text-xs"
               />
               <span className="text-zinc-500">px</span>
@@ -324,15 +356,33 @@ function CropEditor({
         <img src={src} alt="미리보기" className="block max-h-[500px] object-contain" draggable={false} />
         {enabled ? (
           <>
-            {/* 상단 어둡게 */}
+            {/* 상단 어둡게 (전체 가로 폭) */}
             <div
               className="pointer-events-none absolute inset-x-0 top-0 bg-black/50"
               style={{ height: `${yRatio0 * 100}%` }}
             />
-            {/* 하단 어둡게 */}
+            {/* 하단 어둡게 (전체 가로 폭) */}
             <div
               className="pointer-events-none absolute inset-x-0 bottom-0 bg-black/50"
               style={{ height: `${(1 - yRatio1) * 100}%` }}
+            />
+            {/* 좌측 어둡게 (상/하 사이만) */}
+            <div
+              className="pointer-events-none absolute left-0 bg-black/50"
+              style={{
+                top: `${yRatio0 * 100}%`,
+                bottom: `${(1 - yRatio1) * 100}%`,
+                width: `${xRatio0 * 100}%`,
+              }}
+            />
+            {/* 우측 어둡게 (상/하 사이만) */}
+            <div
+              className="pointer-events-none absolute right-0 bg-black/50"
+              style={{
+                top: `${yRatio0 * 100}%`,
+                bottom: `${(1 - yRatio1) * 100}%`,
+                width: `${(1 - xRatio1) * 100}%`,
+              }}
             />
             {/* 상단 핸들 */}
             <div
@@ -354,6 +404,38 @@ function CropEditor({
               <div className="h-0.5 w-full bg-lime-400" />
               <div className="absolute left-1/2 -translate-x-1/2 rounded bg-lime-400 px-1.5 py-0.5 text-[10px] font-semibold text-zinc-900 shadow">
                 BOTTOM {(yRatio1 * 100).toFixed(1)}%
+              </div>
+            </div>
+            {/* 좌측 핸들 (모델표 영역 세로 구간 안에서만) */}
+            <div
+              onPointerDown={(e) => { e.preventDefault(); setDragging('left'); }}
+              className="absolute z-10 flex cursor-ew-resize justify-center"
+              style={{
+                left: `calc(${xRatio0 * 100}% - 6px)`,
+                top: `${yRatio0 * 100}%`,
+                bottom: `${(1 - yRatio1) * 100}%`,
+                width: 12,
+              }}
+            >
+              <div className="h-full w-0.5 bg-sky-400" />
+              <div className="absolute top-1/2 -translate-y-1/2 rounded bg-sky-400 px-1.5 py-0.5 text-[10px] font-semibold text-zinc-900 shadow">
+                LEFT {(xRatio0 * 100).toFixed(1)}%
+              </div>
+            </div>
+            {/* 우측 핸들 */}
+            <div
+              onPointerDown={(e) => { e.preventDefault(); setDragging('right'); }}
+              className="absolute z-10 flex cursor-ew-resize justify-center"
+              style={{
+                left: `calc(${xRatio1 * 100}% - 6px)`,
+                top: `${yRatio0 * 100}%`,
+                bottom: `${(1 - yRatio1) * 100}%`,
+                width: 12,
+              }}
+            >
+              <div className="h-full w-0.5 bg-sky-400" />
+              <div className="absolute top-1/2 -translate-y-1/2 rounded bg-sky-400 px-1.5 py-0.5 text-[10px] font-semibold text-zinc-900 shadow">
+                RIGHT {(xRatio1 * 100).toFixed(1)}%
               </div>
             </div>
           </>
