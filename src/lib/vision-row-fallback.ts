@@ -119,8 +119,14 @@ const VENDOR_CONFIGS: Record<string, VendorConfig> = {
   },
 };
 
-function isWatch(modelCode: string): boolean {
-  return /^SM-L\d/.test(modelCode);
+function isWatch(modelCode: string, nickname?: string): boolean {
+  // SKT 표준 코드 SM-Lxxx, KT/LGU 자체 코드 Lxxx, 닉네임 "워치"/"Watch"
+  const text = `${modelCode} ${nickname ?? ''}`;
+  return (
+    /^SM-L\d/.test(modelCode) ||
+    /^L\d{3}/.test(modelCode) ||
+    /워치|Watch/i.test(text)
+  );
 }
 
 /**
@@ -148,8 +154,8 @@ function isSubsidyMonotonicityViolated(model: ParsedModel): boolean {
  * 머지된 워치 row의 subsidy를 OCR/LLM 정상값(5만원+) 최빈값으로 최종 통일.
  * correctWatchSubsidyHallucination이 LLM 단계에서 놓친 케이스 보호용.
  */
-function unifyWatchSubsidies(modelCode: string, tiers: ModelTier[]): ModelTier[] {
-  if (!isWatch(modelCode)) return tiers;
+function unifyWatchSubsidies(modelCode: string, nickname: string, tiers: ModelTier[]): ModelTier[] {
+  if (!isWatch(modelCode, nickname)) return tiers;
   const validSubsidies = tiers
     .map((t) => t.subsidy_krw)
     .filter((v): v is number => v != null && v >= 50_000);
@@ -168,11 +174,23 @@ function unifyWatchSubsidies(modelCode: string, tiers: ModelTier[]): ModelTier[]
 }
 
 function isSuspicious(model: ParsedModel, expectedTierCount: number): { suspicious: boolean; reason?: string } {
-  // 워치는 OCR 셀 병합 빈발 → 항상 보강
-  if (isWatch(model.model_code_raw)) return { suspicious: true, reason: 'watch' };
+  // 워치는 OCR 셀 병합 빈발 → 항상 보강. nickname도 같이 체크 (KT/LGU 워치)
+  if (isWatch(model.model_code_raw, model.nickname)) return { suspicious: true, reason: 'watch' };
   // tier 누락 (7개 중 5개 미만)
   if (model.tiers.length < Math.floor(expectedTierCount * 0.7)) {
     return { suspicious: true, reason: `tiers=${model.tiers.length}` };
+  }
+  // outlier cell value (150만원 초과) — 단위 환각/매핑 오류 의심.
+  // 일반 단가 최대 ~80만원, 150만원 초과는 OCR/LLM 오인식 가능성 높음.
+  for (const t of model.tiers) {
+    for (const q of [t.common, t.select]) {
+      if (!q) continue;
+      for (const v of [q.new010, q.mnp, q.change]) {
+        if (v != null && v > 1_500_000) {
+          return { suspicious: true, reason: `outlier cell value ${v}원` };
+        }
+      }
+    }
   }
   // 선약 column 보유 vendor 자동 감지 (모든 tier select=null이면 LGU/KT 같은 vendor → select 체크 skip)
   const hasSelectColumn = model.tiers.some((t) => t.select != null);
@@ -281,8 +299,8 @@ function mergeLlmIntoOcr(ocrTiers: ModelTier[], llmTiers: ModelTier[]): ModelTie
  * 휴리스틱: 워치 row이고 common/select가 모든 tier에서 동일하면
  * subsidy 7개 중 최빈값으로 통일.
  */
-function correctWatchSubsidyHallucination(modelCode: string, tiers: ModelTier[]): ModelTier[] {
-  if (!isWatch(modelCode)) return tiers;
+function correctWatchSubsidyHallucination(modelCode: string, nickname: string, tiers: ModelTier[]): ModelTier[] {
+  if (!isWatch(modelCode, nickname)) return tiers;
   if (tiers.length < 5) return tiers;
   // 모든 tier의 common, select가 동일한지
   const stringify = (q: { new010: number | null; mnp: number | null; change: number | null } | null): string =>
@@ -615,11 +633,11 @@ export async function applyVisionFallback(params: {
         if (rawLlmTiers.length === 0) {
           return { job, ok: false, reason: 'all tiers empty after parse' };
         }
-        const correctedLlmTiers = correctWatchSubsidyHallucination(job.model.model_code_raw, rawLlmTiers);
+        const correctedLlmTiers = correctWatchSubsidyHallucination(job.model.model_code_raw, job.model.nickname, rawLlmTiers);
         // LLM 결과를 OCR 결과에 cell 단위로 머지 (LLM null → OCR 유지, 10x 차이 → OCR 유지)
         const mergedTiers = mergeLlmIntoOcr(job.model.tiers, correctedLlmTiers);
         // 워치는 머지 후에도 subsidy 정상값 기반 통일 (이중 보호)
-        const newTiers = unifyWatchSubsidies(job.model.model_code_raw, mergedTiers);
+        const newTiers = unifyWatchSubsidies(job.model.model_code_raw, job.model.nickname, mergedTiers);
         return { job, ok: true, newTiers };
       }),
     );

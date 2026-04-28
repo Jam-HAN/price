@@ -66,7 +66,13 @@ export function parseClovaNear(resp: ClovaResponse): SheetExtraction {
     const retailRaw = grid.get(`${r}|1`) ?? '';
     // 니어 출고가 포맷 "1.290.000" 또는 "1,290,000" 또는 "1:290:000" 다양 — 숫자만 추출
     const retailDigits = retailRaw.replace(/\D/g, '');
-    const retail_price_krw = retailDigits ? Number(retailDigits) : null;
+    // OCR이 인접 row의 출고가를 합쳐서 인식하는 케이스 방지 (예: "12900001590000" 14자리)
+    // 1억 초과 또는 9자리 초과면 OCR 오인식으로 간주.
+    const retailNum = retailDigits ? Number(retailDigits) : null;
+    const retail_price_krw =
+      retailNum != null && retailNum > 0 && retailNum <= 10_000_000 && retailDigits.length <= 8
+        ? retailNum
+        : null;
 
     const tiers: ModelTier[] = [];
     for (const g of GROUPS) {
