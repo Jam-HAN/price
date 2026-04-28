@@ -112,23 +112,75 @@ function isSuspicious(model: ParsedModel, expectedTierCount: number): { suspicio
   if (model.tiers.length < Math.floor(expectedTierCount * 0.7)) {
     return { suspicious: true, reason: `tiers=${model.tiers.length}` };
   }
-  // common null 비율 50% 초과
-  let totalCells = 0;
-  let nullCells = 0;
+  // tier 단위 통째 null (common 또는 select가 한 tier에서 통째로 null) → 1개라도 즉시 트리거
+  let commonAllNullTiers = 0;
+  let selectAllNullTiers = 0;
+  let commonNullCells = 0;
+  let selectNullCells = 0;
   for (const t of model.tiers) {
-    totalCells += 3;
-    if (!t.common) {
-      nullCells += 3;
-      continue;
+    if (!t.common) commonAllNullTiers++;
+    else {
+      if (t.common.new010 == null) commonNullCells++;
+      if (t.common.mnp == null) commonNullCells++;
+      if (t.common.change == null) commonNullCells++;
     }
-    if (t.common.new010 == null) nullCells++;
-    if (t.common.mnp == null) nullCells++;
-    if (t.common.change == null) nullCells++;
+    if (!t.select) selectAllNullTiers++;
+    else {
+      if (t.select.new010 == null) selectNullCells++;
+      if (t.select.mnp == null) selectNullCells++;
+      if (t.select.change == null) selectNullCells++;
+    }
   }
-  if (totalCells > 0 && nullCells / totalCells > 0.5) {
-    return { suspicious: true, reason: `common null ${Math.round((nullCells / totalCells) * 100)}%` };
+  if (commonAllNullTiers >= 1) {
+    return { suspicious: true, reason: `common 통째 null tier ${commonAllNullTiers}개` };
+  }
+  if (selectAllNullTiers >= 1) {
+    return { suspicious: true, reason: `select 통째 null tier ${selectAllNullTiers}개` };
+  }
+  // 산발 null도 2개 이상이면 트리거 (common/select 합산)
+  const totalNullCells = commonNullCells + selectNullCells;
+  if (totalNullCells >= 2) {
+    return { suspicious: true, reason: `null cells ${totalNullCells}개` };
   }
   return { suspicious: false };
+}
+
+/**
+ * 워치 subsidy 교호 환각 보정.
+ * SM-L705NB 케이스: LLM이 "tier마다 subsidy 다름" 추론 → 300/150/300/150 패턴 환각.
+ * 실제 워치는 모든 tier subsidy 동일.
+ *
+ * 휴리스틱: 워치 row이고 common/select가 모든 tier에서 동일하면
+ * subsidy 7개 중 최빈값으로 통일.
+ */
+function correctWatchSubsidyHallucination(modelCode: string, tiers: ModelTier[]): ModelTier[] {
+  if (!isWatch(modelCode)) return tiers;
+  if (tiers.length < 5) return tiers;
+  // 모든 tier의 common, select가 동일한지
+  const stringify = (q: { new010: number | null; mnp: number | null; change: number | null } | null): string =>
+    q ? `${q.new010}|${q.mnp}|${q.change}` : 'null';
+  const firstCommon = stringify(tiers[0].common);
+  const firstSelect = stringify(tiers[0].select);
+  const allSame = tiers.every(
+    (t) => stringify(t.common) === firstCommon && stringify(t.select) === firstSelect,
+  );
+  if (!allSame) return tiers;
+  // subsidy 최빈값
+  const subsidies = tiers.map((t) => t.subsidy_krw).filter((v): v is number => v != null);
+  if (subsidies.length < 5) return tiers;
+  const counts = new Map<number, number>();
+  for (const v of subsidies) counts.set(v, (counts.get(v) ?? 0) + 1);
+  let mode = subsidies[0];
+  let modeCount = 0;
+  for (const [v, c] of counts) {
+    if (c > modeCount) {
+      mode = v;
+      modeCount = c;
+    }
+  }
+  // 최빈값이 과반이 아니면 보정 안 함 (애매한 경우 LLM 판단 유지)
+  if (modeCount * 2 <= subsidies.length) return tiers;
+  return tiers.map((t) => ({ ...t, subsidy_krw: mode }));
 }
 
 async function cropRowImage(regionBytes: Buffer, yMin: number, yMax: number, padding = 6): Promise<Buffer> {
@@ -383,10 +435,11 @@ export async function applyVisionFallback(params: {
         if (!llmTiers || llmTiers.length === 0) {
           return { job, ok: false, reason: 'LLM JSON parse failed' };
         }
-        const newTiers = llmTiersToModelTiers(llmTiers, config);
-        if (newTiers.length === 0) {
+        const rawNewTiers = llmTiersToModelTiers(llmTiers, config);
+        if (rawNewTiers.length === 0) {
           return { job, ok: false, reason: 'all tiers empty after parse' };
         }
+        const newTiers = correctWatchSubsidyHallucination(job.model.model_code_raw, rawNewTiers);
         return { job, ok: true, newTiers };
       }),
     );
