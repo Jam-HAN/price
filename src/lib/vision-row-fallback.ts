@@ -316,35 +316,49 @@ async function callClaudeVision(imageBytes: Buffer, prompt: string): Promise<str
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error('ANTHROPIC_API_KEY 환경변수 누락');
   const imageBase64 = imageBytes.toString('base64');
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'content-type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 2048,
-      messages: [
-        {
-          role: 'user',
-          content: [
-            { type: 'image', source: { type: 'base64', media_type: 'image/png', data: imageBase64 } },
-            { type: 'text', text: prompt },
-          ],
-        },
-      ],
-    }),
-  });
-  if (!res.ok) {
-    const t = await res.text();
-    throw new Error(`Anthropic ${res.status}: ${t.slice(0, 300)}`);
+
+  // 429 / 5xx 재시도 with exponential backoff (1s → 2s → 4s, 최대 3회)
+  const maxAttempts = 3;
+  let lastErr: string | null = null;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 2048,
+        messages: [
+          {
+            role: 'user',
+            content: [
+              { type: 'image', source: { type: 'base64', media_type: 'image/png', data: imageBase64 } },
+              { type: 'text', text: prompt },
+            ],
+          },
+        ],
+      }),
+    });
+    if (res.ok) {
+      const json = (await res.json()) as { content?: Array<{ type: string; text?: string }> };
+      const text = json.content?.find((c) => c.type === 'text')?.text ?? '';
+      if (!text) throw new Error('Anthropic 응답에 text 없음');
+      return text;
+    }
+    const errText = await res.text();
+    lastErr = `Anthropic ${res.status}: ${errText.slice(0, 300)}`;
+    // 429(rate limit), 529(overloaded), 5xx 재시도. 4xx 다른 에러는 즉시 throw.
+    const retryable = res.status === 429 || res.status === 529 || res.status >= 500;
+    if (!retryable || attempt === maxAttempts - 1) {
+      throw new Error(lastErr);
+    }
+    const backoffMs = 1000 * Math.pow(2, attempt); // 1s, 2s, 4s
+    await new Promise((resolve) => setTimeout(resolve, backoffMs));
   }
-  const json = (await res.json()) as { content?: Array<{ type: string; text?: string }> };
-  const text = json.content?.find((c) => c.type === 'text')?.text ?? '';
-  if (!text) throw new Error('Anthropic 응답에 text 없음');
-  return text;
+  throw new Error(lastErr ?? 'Anthropic 호출 실패');
 }
 
 function parseLlmJson(text: string): LlmTier[] | null {
@@ -520,7 +534,7 @@ export async function applyVisionFallback(params: {
 
   let fallbackCount = 0;
   let fallbackErrors = 0;
-  const concurrency = 3;
+  const concurrency = 2; // Anthropic rate limit 보수적 운영 (3 → 2)
 
   type JobOk = { job: Job; ok: true; newTiers: ModelTier[] };
   type JobFail = { job: Job; ok: false; reason: string };
