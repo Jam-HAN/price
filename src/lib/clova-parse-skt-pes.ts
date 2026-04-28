@@ -208,16 +208,21 @@ export function parseClovaPes(resp: ClovaResponse): SheetExtraction {
           ? retailComputed
           : null;
 
+      // 워치(SM-Lxxx)는 만원 값이 보통 1~3만원이므로 5초과는 OCR 오류로 간주
+      const isWatch = /^SM-L\d/.test(modelCode);
+      const watchClamp = (v: number | null): number | null =>
+        isWatch && v != null && v > 5 ? null : v;
+
       const tiers: ModelTier[] = [];
       for (const t of TIERS) {
         const b = anchorCol + t.relOffset;
         const subsidy = parseChunAmountOrNull(grid.get(`${dataRow}|${b}`)     ?? '');
-        const c010    = parseManAmountOrNull(grid.get(`${dataRow}|${b + 1}`) ?? '');
-        const cMnp    = parseManAmountOrNull(grid.get(`${dataRow}|${b + 2}`) ?? '');
-        const cChange = parseManAmountOrNull(grid.get(`${dataRow}|${b + 3}`) ?? '');
-        const s010    = parseManAmountOrNull(grid.get(`${dataRow}|${b + 4}`) ?? '');
-        const sMnp    = parseManAmountOrNull(grid.get(`${dataRow}|${b + 5}`) ?? '');
-        const sChange = parseManAmountOrNull(grid.get(`${dataRow}|${b + 6}`) ?? '');
+        const c010    = watchClamp(parseManAmountOrNull(grid.get(`${dataRow}|${b + 1}`) ?? ''));
+        const cMnp    = watchClamp(parseManAmountOrNull(grid.get(`${dataRow}|${b + 2}`) ?? ''));
+        const cChange = watchClamp(parseManAmountOrNull(grid.get(`${dataRow}|${b + 3}`) ?? ''));
+        const s010    = watchClamp(parseManAmountOrNull(grid.get(`${dataRow}|${b + 4}`) ?? ''));
+        const sMnp    = watchClamp(parseManAmountOrNull(grid.get(`${dataRow}|${b + 5}`) ?? ''));
+        const sChange = watchClamp(parseManAmountOrNull(grid.get(`${dataRow}|${b + 6}`) ?? ''));
 
         const common =
           c010 == null && cMnp == null && cChange == null
