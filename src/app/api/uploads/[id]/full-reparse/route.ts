@@ -7,6 +7,7 @@ import { cropAndResize, type CropSpec, type CropRegion } from '@/lib/image-crop'
 import { tileAndExtract } from '@/lib/clova-tile';
 import type { SheetExtraction } from '@/lib/vision-schema';
 import { syncSheetToNormalized } from '@/lib/sync-sheet';
+import { applyVisionFallback, fallbackVendorSupported } from '@/lib/vision-row-fallback';
 
 export const maxDuration = 300;
 
@@ -106,6 +107,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
         models: [],
         policies: [],
       };
+      const seenModelCodes = new Set<string>();
       for (const region of effectiveCrop.regions) {
         const subSpec: CropSpec = {
           yRatio0: region.yRatio0,
@@ -116,15 +118,37 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
         };
         const bytesForOcr = await cropAndResize(imageBytes, subSpec);
         const regionImg = await clovaExtract({ imageBytes: bytesForOcr, format: 'png' });
-        const regionRoute = resolveClovaParser(region.parser_key ?? vendor.parser_key);
+        const regionParserKey = region.parser_key ?? vendor.parser_key;
+        const regionRoute = resolveClovaParser(regionParserKey);
         if (!regionRoute) continue;
-        const regionParsed = regionRoute.parser({
+        const regionParsedRaw = regionRoute.parser({
           version: 'V2',
           requestId: '',
           timestamp: Date.now(),
           images: [regionImg],
         });
-        merged.models.push(...regionParsed.models);
+        let regionParsed = regionParsedRaw;
+        if (fallbackVendorSupported(regionParserKey)) {
+          try {
+            const fb = await applyVisionFallback({
+              regionBytes: bytesForOcr,
+              clovaImg: regionImg,
+              parsed: regionParsedRaw,
+              parserKey: regionParserKey,
+            });
+            regionParsed = fb.parsed;
+            if (fb.fallbackCount > 0 || fb.fallbackErrors > 0) {
+              console.log(`[fallback] ${region.name}: replaced=${fb.fallbackCount} errors=${fb.fallbackErrors}`);
+            }
+          } catch (e) {
+            console.error('[fallback] failed', e instanceof Error ? e.message : e);
+          }
+        }
+        for (const m of regionParsed.models) {
+          if (seenModelCodes.has(m.model_code_raw)) continue;
+          seenModelCodes.add(m.model_code_raw);
+          merged.models.push(m);
+        }
         merged.policies.push(...regionParsed.policies);
         if (regionParsed.policy_round && !merged.policy_round) merged.policy_round = regionParsed.policy_round;
         if (regionParsed.effective_date && !merged.effective_date) merged.effective_date = regionParsed.effective_date;
@@ -133,6 +157,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
       parsed = merged;
     } else {
       let clovaImg;
+      let fallbackCtx: { bytesForOcr: Buffer } | null = null;
       if (effectiveCrop?.tile === 2 || effectiveCrop?.tile === 4 || effectiveCrop?.tile === 6) {
         clovaImg = await tileAndExtract({
           imageBytes,
@@ -147,13 +172,33 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
             ? 'jpg'
             : 'png';
         clovaImg = await clovaExtract({ imageBytes: bytesForOcr, format: formatForOcr });
+        fallbackCtx = { bytesForOcr: Buffer.isBuffer(bytesForOcr) ? bytesForOcr : Buffer.from(bytesForOcr) };
       }
-      parsed = clovaRoute.parser({
+      const parsedRaw = clovaRoute.parser({
         version: 'V2',
         requestId: '',
         timestamp: Date.now(),
         images: [clovaImg],
       });
+      if (fallbackCtx && fallbackVendorSupported(vendor.parser_key)) {
+        try {
+          const fb = await applyVisionFallback({
+            regionBytes: fallbackCtx.bytesForOcr,
+            clovaImg,
+            parsed: parsedRaw,
+            parserKey: vendor.parser_key,
+          });
+          parsed = fb.parsed;
+          if (fb.fallbackCount > 0 || fb.fallbackErrors > 0) {
+            console.log(`[fallback] reparse single-call: replaced=${fb.fallbackCount} errors=${fb.fallbackErrors}`);
+          }
+        } catch (e) {
+          console.error('[fallback] failed', e instanceof Error ? e.message : e);
+          parsed = parsedRaw;
+        }
+      } else {
+        parsed = parsedRaw;
+      }
     }
 
     await sb

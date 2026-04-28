@@ -8,6 +8,7 @@ import { tileAndExtract, type TileDebug } from '@/lib/clova-tile';
 import type { SheetExtraction } from '@/lib/vision-schema';
 import { syncSheetToNormalized } from '@/lib/sync-sheet';
 import { kstToday } from '@/lib/fmt';
+import { applyVisionFallback, fallbackVendorSupported, type FallbackDebug } from '@/lib/vision-row-fallback';
 
 export const maxDuration = 300;
 
@@ -227,6 +228,9 @@ async function handle(req: Request) {
       policies: number;
       tableCells: number;
       sampleCells: Array<{ r: number; c: number; t: string }>;
+      fallbackCount?: number;
+      fallbackErrors?: number;
+      fallbackDebug?: FallbackDebug[];
     }> | null = null;
 
     if (effectiveCrop?.regions && effectiveCrop.regions.length > 0) {
@@ -278,12 +282,38 @@ async function handle(req: Request) {
           });
           continue;
         }
-        const regionParsed = regionRoute.parser({
+        const regionParsedRaw = regionRoute.parser({
           version: 'V2',
           requestId: '',
           timestamp: Date.now(),
           images: [regionImg],
         });
+        // Vision LLM auto-fallback: 워치/sparse row만 골라 row 단위로 Claude vision 재추출
+        let regionParsed = regionParsedRaw;
+        let regionFallbackCount = 0;
+        let regionFallbackErrors = 0;
+        let regionFallbackDebug: FallbackDebug[] = [];
+        if (fallbackVendorSupported(regionParserKey)) {
+          try {
+            const fb = await applyVisionFallback({
+              regionBytes: bytesForOcr,
+              clovaImg: regionImg,
+              parsed: regionParsedRaw,
+              parserKey: regionParserKey,
+            });
+            regionParsed = fb.parsed;
+            regionFallbackCount = fb.fallbackCount;
+            regionFallbackErrors = fb.fallbackErrors;
+            regionFallbackDebug = fb.debug;
+            if (fb.fallbackCount > 0 || fb.fallbackErrors > 0) {
+              console.log(
+                `[fallback] ${region.name}: replaced=${fb.fallbackCount} errors=${fb.fallbackErrors}`,
+              );
+            }
+          } catch (e) {
+            console.error('[fallback] failed', e instanceof Error ? e.message : e);
+          }
+        }
         let dedupedCount = 0;
         for (const m of regionParsed.models) {
           if (seenModelCodes.has(m.model_code_raw)) {
@@ -313,6 +343,9 @@ async function handle(req: Request) {
           policies: regionParsed.policies.length,
           tableCells: cellsRaw.length,
           sampleCells,
+          fallbackCount: regionFallbackCount,
+          fallbackErrors: regionFallbackErrors,
+          fallbackDebug: regionFallbackDebug,
         });
       }
       parsed = merged;
@@ -339,17 +372,43 @@ async function handle(req: Request) {
           tileCount: effectiveCrop.tile,
           debug: tileDebug,
         });
+        parsed = clovaRoute.parser({
+          version: 'V2',
+          requestId: '',
+          timestamp: Date.now(),
+          images: [clovaImg],
+        });
       } else {
         const bytesForOcr = effectiveCrop ? await cropAndResize(imageBytes, effectiveCrop) : imageBytes;
         const formatForOcr = effectiveCrop ? 'png' : (ext === 'jpg' ? 'jpg' : (ext as 'png' | 'jpeg'));
         clovaImg = await clovaExtract({ imageBytes: bytesForOcr, format: formatForOcr });
+        const parsedRaw = clovaRoute.parser({
+          version: 'V2',
+          requestId: '',
+          timestamp: Date.now(),
+          images: [clovaImg],
+        });
+        // 단일 호출 모드에서도 vision fallback 적용 (tile 모드는 좌표 어긋나므로 제외)
+        if (fallbackVendorSupported(vendor.parser_key)) {
+          try {
+            const fb = await applyVisionFallback({
+              regionBytes: Buffer.isBuffer(bytesForOcr) ? bytesForOcr : Buffer.from(bytesForOcr),
+              clovaImg,
+              parsed: parsedRaw,
+              parserKey: vendor.parser_key,
+            });
+            parsed = fb.parsed;
+            if (fb.fallbackCount > 0 || fb.fallbackErrors > 0) {
+              console.log(`[fallback] single-call: replaced=${fb.fallbackCount} errors=${fb.fallbackErrors}`);
+            }
+          } catch (e) {
+            console.error('[fallback] failed', e instanceof Error ? e.message : e);
+            parsed = parsedRaw;
+          }
+        } else {
+          parsed = parsedRaw;
+        }
       }
-      parsed = clovaRoute.parser({
-        version: 'V2',
-        requestId: '',
-        timestamp: Date.now(),
-        images: [clovaImg],
-      });
     }
 
     // tile/regions 모드면 진단 정보를 raw_ocr_json에 함께 보관 + 빈 결과면 error_message에 요약
