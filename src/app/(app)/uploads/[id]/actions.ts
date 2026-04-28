@@ -40,7 +40,8 @@ export async function autoRegisterMissingDevices(formData: FormData) {
     .select('vendor_code, device_id')
     .eq('vendor_id', sheet.vendor_id);
   const aliasMap = new Map((existingAliases ?? []).map((a) => [a.vendor_code, a.device_id]));
-  const { data: devices } = await sb.from('price_devices').select('id, model_code, nickname').eq('active', true);
+  // 정확도 검증을 위해 active 필터 해제 — 검수 단계에선 inactive도 매칭되어야 누락 진단 가능
+  const { data: devices } = await sb.from('price_devices').select('id, model_code, nickname');
   const deviceByCode = new Map((devices ?? []).map((d) => [d.model_code, d.id]));
   const deviceByNick = new Map((devices ?? []).map((d) => [d.nickname, d.id]));
   const deviceByNormalized = new Map<string, string>();

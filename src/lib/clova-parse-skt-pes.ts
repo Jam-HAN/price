@@ -24,26 +24,7 @@
 
 import type { ClovaResponse } from './clova-ocr';
 import type { SheetExtraction, ParsedModel, ModelTier } from './vision-schema';
-
-type Cell = { rowIndex: number; columnIndex: number; text: string };
-
-function extractCells(resp: ClovaResponse): Cell[] {
-  const img = resp.images?.[0];
-  if (!img) return [];
-  const tables = (img as unknown as { tables?: Array<{ cells: Array<{ rowIndex: number; columnIndex: number; cellTextLines?: Array<{ cellWords?: Array<{ inferText?: string }> }> }> }> }).tables;
-  if (!tables || !tables[0]) return [];
-  const out: Cell[] = [];
-  for (const c of tables[0].cells) {
-    const words: string[] = [];
-    for (const line of c.cellTextLines ?? []) {
-      for (const w of line.cellWords ?? []) {
-        if (w.inferText) words.push(w.inferText);
-      }
-    }
-    out.push({ rowIndex: c.rowIndex, columnIndex: c.columnIndex, text: words.join(' ').trim() });
-  }
-  return out;
-}
+import { extractCellsRemapped, type Cell } from './clova-cells-utils';
 
 function parseNumberOrNull(s: string): number | null {
   if (!s) return null;
@@ -94,7 +75,7 @@ const TIERS: Array<{ code: string; baseCol: number }> = [
 ];
 
 export function parseClovaPes(resp: ClovaResponse): SheetExtraction {
-  const cells = extractCells(resp);
+  const cells = extractCellsRemapped(resp);
   const grid = new Map<string, string>();
   for (const c of cells) grid.set(`${c.rowIndex}|${c.columnIndex}`, c.text);
 

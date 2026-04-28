@@ -33,33 +33,7 @@ const LGU_GROUP_TO_TIER: Record<number, string> = {
   7: 'G33',
 };
 
-type Cell = {
-  rowIndex: number;
-  columnIndex: number;
-  text: string;
-};
-
-function extractCells(resp: ClovaResponse): Cell[] {
-  const img = resp.images?.[0];
-  if (!img) return [];
-  const tables = (img as unknown as { tables?: Array<{ cells: Array<{ rowIndex: number; columnIndex: number; cellTextLines?: Array<{ cellWords?: Array<{ inferText?: string }> }> }> }> }).tables;
-  if (!tables || !tables[0]) return [];
-  const out: Cell[] = [];
-  for (const c of tables[0].cells) {
-    const words: string[] = [];
-    for (const line of c.cellTextLines ?? []) {
-      for (const w of line.cellWords ?? []) {
-        if (w.inferText) words.push(w.inferText);
-      }
-    }
-    out.push({
-      rowIndex: c.rowIndex,
-      columnIndex: c.columnIndex,
-      text: words.join(' ').trim(),
-    });
-  }
-  return out;
-}
+import { extractCellsRemapped, type Cell } from './clova-cells-utils';
 
 function toGrid(cells: Cell[]): Map<string, string> {
   const m = new Map<string, string>();
@@ -87,7 +61,7 @@ function parseNumberOrNull(s: string): number | null {
  * 헤더 행(대개 row 0~4) 스킵하고 col 0 에 모델코드가 있는 행부터 데이터 행으로 간주.
  */
 export function parseClovaLGU(resp: ClovaResponse): SheetExtraction {
-  const cells = extractCells(resp);
+  const cells = extractCellsRemapped(resp);
   const grid = toGrid(cells);
 
   // 그리드의 최대 행/열 파악
