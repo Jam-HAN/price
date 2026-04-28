@@ -42,6 +42,29 @@ function parseNumberOrNull(s: string): number | null {
  *
  * 발견된 OCR 오류 예시: raw "3050400000" 같은 30억 단위 값.
  */
+/**
+ * nickname/retail이 한 셀에 여러 개 합쳐진 경우 토큰 수만큼 split.
+ */
+function splitNicknameTokens(nick: string, count: number): string[] {
+  if (count <= 1 || !nick) return [nick];
+  const PREFIXES = ['갤럭시', 'IPHONE', '아이폰', 'Z플립', 'Z폴드', '갤S', 'ZEM'];
+  for (const prefix of PREFIXES) {
+    if (!nick.includes(prefix)) continue;
+    const parts = nick
+      .split(new RegExp(`\\s*(?=${prefix})`, 'g'))
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+    if (parts.length === count) return parts;
+  }
+  return [];
+}
+
+function splitRetailTokens(raw: string, count: number): string[] {
+  if (count <= 1 || !raw) return [raw];
+  const parts = raw.split(/\s+/).filter((s) => /[0-9]/.test(s));
+  return parts.length === count ? parts : [];
+}
+
 function parseManAmountOrNull(s: string): number | null {
   const n = parseNumberOrNull(s);
   if (n == null) return null;
@@ -122,8 +145,32 @@ export function parseClovaCheongdam(resp: ClovaResponse): SheetExtraction {
         }
       }
 
-      const nickname = (grid.get(`${dataRow}|${anchorCol + 1}`) ?? '').trim();
-      const retailDigits = (grid.get(`${dataRow}|${anchorCol + 2}`) ?? '').replace(/\D/g, '');
+      // nickname: 통합 셀 분할 우선, 실패 시 dataRow에서
+      let nickname = '';
+      const fullNick = (grid.get(`${r}|${anchorCol + 1}`) ?? '').trim();
+      if (tokens.length > 1) {
+        const nickParts = splitNicknameTokens(fullNick, tokens.length);
+        if (nickParts.length === tokens.length) {
+          nickname = nickParts[tIdx];
+        }
+      }
+      if (!nickname) {
+        nickname = (grid.get(`${dataRow}|${anchorCol + 1}`) ?? '').trim();
+      }
+
+      // retail: 동일 패턴 (청담은 원 단위 정수)
+      let retailRawText = '';
+      const fullRetail = (grid.get(`${r}|${anchorCol + 2}`) ?? '').trim();
+      if (tokens.length > 1) {
+        const retailParts = splitRetailTokens(fullRetail, tokens.length);
+        if (retailParts.length === tokens.length) {
+          retailRawText = retailParts[tIdx];
+        }
+      }
+      if (!retailRawText) {
+        retailRawText = (grid.get(`${dataRow}|${anchorCol + 2}`) ?? '').trim();
+      }
+      const retailDigits = retailRawText.replace(/\D/g, '');
       const retailRaw = retailDigits ? Number(retailDigits) : null;
       const retail_price_krw =
         retailRaw != null && retailRaw >= 0 && retailRaw <= 100_000_000 ? retailRaw : null;

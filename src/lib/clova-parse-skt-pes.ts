@@ -55,6 +55,34 @@ function parseManAmountOrNull(s: string): number | null {
 }
 
 /**
+ * nickname이 한 셀에 여러 개 합쳐진 경우 토큰 수 만큼 split.
+ * 예: "갤럭시 S26+_512G 갤럭시 S26 올트라" → ["갤럭시 S26+_512G", "갤럭시 S26 올트라"]
+ */
+function splitNicknameTokens(nick: string, count: number): string[] {
+  if (count <= 1 || !nick) return [nick];
+  const PREFIXES = ['갤럭시', 'IPHONE', '아이폰', 'Z플립', 'Z폴드', '갤S', 'ZEM'];
+  for (const prefix of PREFIXES) {
+    if (!nick.includes(prefix)) continue;
+    const parts = nick
+      .split(new RegExp(`\\s*(?=${prefix})`, 'g'))
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+    if (parts.length === count) return parts;
+  }
+  return [];
+}
+
+/**
+ * retail이 한 셀에 여러 값으로 합쳐진 경우 split.
+ * 예: "374.0 618.2" → ["374.0", "618.2"]
+ */
+function splitRetailTokens(raw: string, count: number): string[] {
+  if (count <= 1 || !raw) return [raw];
+  const parts = raw.split(/\s+/).filter((s) => /[0-9]/.test(s));
+  return parts.length === count ? parts : [];
+}
+
+/**
  * 공시지원금 천원 단위 raw 값. 정상 0~500 정도, 10000(=1천만원) 초과는 OCR 이상.
  */
 function parseChunAmountOrNull(s: string): number | null {
@@ -142,8 +170,31 @@ export function parseClovaPes(resp: ClovaResponse): SheetExtraction {
         }
       }
 
-      const nickname = (grid.get(`${dataRow}|${anchorCol + 1}`) ?? '').trim();
-      const retailRaw = (grid.get(`${dataRow}|${anchorCol + 2}`) ?? '').trim();
+      // nickname: 통합 셀 분할 우선, 실패 시 dataRow에서
+      let nickname = '';
+      const fullNick = (grid.get(`${r}|${anchorCol + 1}`) ?? '').trim();
+      if (tokens.length > 1) {
+        const nickParts = splitNicknameTokens(fullNick, tokens.length);
+        if (nickParts.length === tokens.length) {
+          nickname = nickParts[tIdx];
+        }
+      }
+      if (!nickname) {
+        nickname = (grid.get(`${dataRow}|${anchorCol + 1}`) ?? '').trim();
+      }
+
+      // retail: 동일 패턴
+      let retailRaw = '';
+      const fullRetail = (grid.get(`${r}|${anchorCol + 2}`) ?? '').trim();
+      if (tokens.length > 1) {
+        const retailParts = splitRetailTokens(fullRetail, tokens.length);
+        if (retailParts.length === tokens.length) {
+          retailRaw = retailParts[tIdx];
+        }
+      }
+      if (!retailRaw) {
+        retailRaw = (grid.get(`${dataRow}|${anchorCol + 2}`) ?? '').trim();
+      }
       const retailThousands = parseNumberOrNull(retailRaw);
       const retailComputed =
         retailThousands != null
