@@ -29,10 +29,10 @@ const PARSERS: Record<string, ClovaRouteEntry> = {
   'lgu-anseong':   { parser: parseClovaAnseong,   label: 'LGU+ 안성' },
   'kt-banchu':     { parser: parseClovaBanchu,    label: 'KT 반추' },
   'kt-near':       { parser: parseClovaNear,      label: 'KT 니어' },
-  'skt-cheongdam': { parser: parseClovaCheongdam, label: 'SKT 청담' },
-  'skt-cheongdam-policy': { parser: parseClovaCheongdamPolicy, label: 'SKT 청담 정책 (placeholder)' },
-  'skt-pes':       { parser: parseClovaPes,       label: 'SKT 피에스' },
-  'skt-pes-policy': { parser: parseClovaPesPolicy, label: 'SKT 피에스 정책 (placeholder)' },
+  'skt-cd':        { parser: parseClovaCheongdam, label: 'SKT 청담' },
+  'skt-cd-policy': { parser: parseClovaCheongdamPolicy, label: 'SKT 청담 정책 (placeholder)' },
+  'skt-ps':        { parser: parseClovaPes,       label: 'SKT 피에스' },
+  'skt-ps-policy': { parser: parseClovaPesPolicy, label: 'SKT 피에스 정책 (placeholder)' },
 };
 
 export function resolveClovaParser(parserKey: string | null | undefined): ClovaRouteEntry | null {

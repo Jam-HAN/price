@@ -87,13 +87,13 @@ type VendorConfig = {
 };
 
 const VENDOR_CONFIGS: Record<string, VendorConfig> = {
-  'skt-cheongdam': {
+  'skt-cd': {
     tierCodes: ['요금제붐업', 'I_100', 'F_79', 'L_69', 'M_50', 'R_43', 'S_33'],
     subsidyUnit: 'man',
     hasSelect: true,
     carrierLabel: 'SKT 청담',
   },
-  'skt-pes': {
+  'skt-ps': {
     tierCodes: ['요금제붐업', 'I_100', 'F_79', 'L_69', 'M_50', 'R_43', 'S_33'],
     subsidyUnit: 'chun',
     hasSelect: true,
