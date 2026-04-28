@@ -105,6 +105,29 @@ function isWatch(modelCode: string): boolean {
   return /^SM-L\d/.test(modelCode);
 }
 
+/**
+ * 머지된 워치 row의 subsidy를 OCR/LLM 정상값(5만원+) 최빈값으로 최종 통일.
+ * correctWatchSubsidyHallucination이 LLM 단계에서 놓친 케이스 보호용.
+ */
+function unifyWatchSubsidies(modelCode: string, tiers: ModelTier[]): ModelTier[] {
+  if (!isWatch(modelCode)) return tiers;
+  const validSubsidies = tiers
+    .map((t) => t.subsidy_krw)
+    .filter((v): v is number => v != null && v >= 50_000);
+  if (validSubsidies.length < 2) return tiers;
+  const counts = new Map<number, number>();
+  for (const v of validSubsidies) counts.set(v, (counts.get(v) ?? 0) + 1);
+  let mode = validSubsidies[0];
+  let modeCount = 0;
+  for (const [v, c] of counts) {
+    if (c > modeCount) {
+      mode = v;
+      modeCount = c;
+    }
+  }
+  return tiers.map((t) => ({ ...t, subsidy_krw: mode }));
+}
+
 function isSuspicious(model: ParsedModel, expectedTierCount: number): { suspicious: boolean; reason?: string } {
   // 워치는 OCR 셀 병합 빈발 → 항상 보강
   if (isWatch(model.model_code_raw)) return { suspicious: true, reason: 'watch' };
@@ -223,12 +246,14 @@ function correctWatchSubsidyHallucination(modelCode: string, tiers: ModelTier[])
     (t) => stringify(t.common) === firstCommon && stringify(t.select) === firstSelect,
   );
   if (!allSame) return tiers;
-  // subsidy 최빈값
+  // subsidy 최빈값. 5만원 미만 (50000) 값은 LLM 환각으로 간주하고 제외.
+  // (워치 subsidy는 일반적으로 5만원 이상 — 이전 환각 사례: 0.1만원=1000원)
   const subsidies = tiers.map((t) => t.subsidy_krw).filter((v): v is number => v != null);
-  if (subsidies.length < 5) return tiers;
+  const validSubsidies = subsidies.filter((v) => v >= 50_000);
+  if (validSubsidies.length < 2) return tiers;
   const counts = new Map<number, number>();
-  for (const v of subsidies) counts.set(v, (counts.get(v) ?? 0) + 1);
-  let mode = subsidies[0];
+  for (const v of validSubsidies) counts.set(v, (counts.get(v) ?? 0) + 1);
+  let mode = validSubsidies[0];
   let modeCount = 0;
   for (const [v, c] of counts) {
     if (c > modeCount) {
@@ -236,8 +261,7 @@ function correctWatchSubsidyHallucination(modelCode: string, tiers: ModelTier[])
       modeCount = c;
     }
   }
-  // 최빈값이 과반이 아니면 보정 안 함 (애매한 경우 LLM 판단 유지)
-  if (modeCount * 2 <= subsidies.length) return tiers;
+  // 유효 subsidy의 최빈값으로 모든 tier 통일 (워치는 모든 tier subsidy 동일이라는 도메인 지식)
   return tiers.map((t) => ({ ...t, subsidy_krw: mode }));
 }
 
@@ -499,7 +523,9 @@ export async function applyVisionFallback(params: {
         }
         const correctedLlmTiers = correctWatchSubsidyHallucination(job.model.model_code_raw, rawLlmTiers);
         // LLM 결과를 OCR 결과에 cell 단위로 머지 (LLM null → OCR 유지, 10x 차이 → OCR 유지)
-        const newTiers = mergeLlmIntoOcr(job.model.tiers, correctedLlmTiers);
+        const mergedTiers = mergeLlmIntoOcr(job.model.tiers, correctedLlmTiers);
+        // 워치는 머지 후에도 subsidy 정상값 기반 통일 (이중 보호)
+        const newTiers = unifyWatchSubsidies(job.model.model_code_raw, mergedTiers);
         return { job, ok: true, newTiers };
       }),
     );
