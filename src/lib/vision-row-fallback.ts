@@ -99,6 +99,24 @@ const VENDOR_CONFIGS: Record<string, VendorConfig> = {
     hasSelect: true,
     carrierLabel: 'SKT 피에스',
   },
+  'lgu-daesan': {
+    tierCodes: ['G115', 'G105', 'G95', 'G85', 'G69', 'G55', 'G33'],
+    subsidyUnit: 'man',
+    hasSelect: false,
+    carrierLabel: 'LGU+ 대산',
+  },
+  'lgu-anseong': {
+    tierCodes: ['G115', 'G105', 'G85', 'G69', 'G55', 'G33'],
+    subsidyUnit: 'man',
+    hasSelect: false,
+    carrierLabel: 'LGU+ 안성',
+  },
+  'kt-near': {
+    tierCodes: ['T110', 'T100', 'T61', 'T37'],
+    subsidyUnit: 'chun',
+    hasSelect: false,
+    carrierLabel: 'KT 니어',
+  },
 };
 
 function isWatch(modelCode: string): boolean {
@@ -156,6 +174,8 @@ function isSuspicious(model: ParsedModel, expectedTierCount: number): { suspicio
   if (model.tiers.length < Math.floor(expectedTierCount * 0.7)) {
     return { suspicious: true, reason: `tiers=${model.tiers.length}` };
   }
+  // 선약 column 보유 vendor 자동 감지 (모든 tier select=null이면 LGU/KT 같은 vendor → select 체크 skip)
+  const hasSelectColumn = model.tiers.some((t) => t.select != null);
   // tier 단위 통째 null (common 또는 select가 한 tier에서 통째로 null) → 1개라도 즉시 트리거
   let commonAllNullTiers = 0;
   let selectAllNullTiers = 0;
@@ -168,21 +188,23 @@ function isSuspicious(model: ParsedModel, expectedTierCount: number): { suspicio
       if (t.common.mnp == null) commonNullCells++;
       if (t.common.change == null) commonNullCells++;
     }
-    if (!t.select) selectAllNullTiers++;
-    else {
-      if (t.select.new010 == null) selectNullCells++;
-      if (t.select.mnp == null) selectNullCells++;
-      if (t.select.change == null) selectNullCells++;
+    if (hasSelectColumn) {
+      if (!t.select) selectAllNullTiers++;
+      else {
+        if (t.select.new010 == null) selectNullCells++;
+        if (t.select.mnp == null) selectNullCells++;
+        if (t.select.change == null) selectNullCells++;
+      }
     }
   }
   if (commonAllNullTiers >= 1) {
     return { suspicious: true, reason: `common 통째 null tier ${commonAllNullTiers}개` };
   }
-  if (selectAllNullTiers >= 1) {
+  if (hasSelectColumn && selectAllNullTiers >= 1) {
     return { suspicious: true, reason: `select 통째 null tier ${selectAllNullTiers}개` };
   }
-  // 산발 null도 2개 이상이면 트리거 (common/select 합산)
-  const totalNullCells = commonNullCells + selectNullCells;
+  // 산발 null도 2개 이상이면 트리거 (common/select 합산, hasSelect=false면 common만)
+  const totalNullCells = commonNullCells + (hasSelectColumn ? selectNullCells : 0);
   if (totalNullCells >= 2) {
     return { suspicious: true, reason: `null cells ${totalNullCells}개` };
   }
@@ -430,8 +452,11 @@ function buildPrompt(modelCode: string, nickname: string, config: VendorConfig):
       ? '천원 단위 (예: "500" = 500,000원, "350" = 350,000원)'
       : '만원 단위 (예: "50" = 500,000원)';
   const tierList = config.tierCodes.join(', ');
-  const exampleTier = `{"plan": "${config.tierCodes[0]}", "subsidy": <number|null>, "common": [<010|null>, <MNP|null>, <기변|null>], "select": [<010|null>, <MNP|null>, <기변|null>]}`;
-  return `이 이미지는 ${config.carrierLabel} 단가표의 한 행(row)이다.
+
+  if (config.hasSelect) {
+    // SKT: 7개 셀 [공시 + 공통3 + 선약3]
+    const exampleTier = `{"plan": "${config.tierCodes[0]}", "subsidy": <number|null>, "common": [<010|null>, <MNP|null>, <기변|null>], "select": [<010|null>, <MNP|null>, <기변|null>]}`;
+    return `이 이미지는 ${config.carrierLabel} 단가표의 한 행(row)이다.
 모델: ${modelCode}${nickname ? ` (${nickname})` : ''}
 
 이 행에 ${config.tierCodes.length}개 요금제 구간이 왼쪽→오른쪽 순서로 배치되어 있다.
@@ -445,6 +470,33 @@ function buildPrompt(modelCode: string, nickname: string, config: VendorConfig):
 1) 빈 셀, "-", "·", "0"은 모두 null로 처리
 2) 숫자는 이미지에 보이는 그대로 입력 (단위 변환 금지, "33.3"은 33.3 그대로)
 3) 셀 간 구분이 모호하면 추측 말고 null
+4) 추가 설명/마크다운 없이 JSON 객체만 출력
+
+응답 형식:
+{
+  "tiers": [
+    ${exampleTier},
+    ... (총 ${config.tierCodes.length}개)
+  ]
+}`;
+  }
+
+  // LGU/KT: 4개 셀 [공시 + 공통3], 선약 컬럼 없음
+  const exampleTier = `{"plan": "${config.tierCodes[0]}", "subsidy": <number|null>, "common": [<010|null>, <MNP|null>, <기변|null>]}`;
+  return `이 이미지는 ${config.carrierLabel} 단가표의 한 행(row)이다.
+모델: ${modelCode}${nickname ? ` (${nickname})` : ''}
+
+이 행에 ${config.tierCodes.length}개 요금제 구간이 왼쪽→오른쪽 순서로 배치되어 있다.
+구간 순서: ${tierList}
+
+각 구간은 4개 셀 [공시지원금, 010 신규, MNP, 기변] (선택약정 컬럼 없음):
+- 공시지원금: ${subsidyDesc} (이미지에 공시 컬럼이 없으면 null)
+- 010/MNP/기변: 만원 단위
+
+중요:
+1) 빈 셀, "-", "·", "0"은 모두 null로 처리
+2) 숫자는 이미지에 보이는 그대로 (단위 변환 금지)
+3) 셀 간 구분 모호하면 추측 말고 null
 4) 추가 설명/마크다운 없이 JSON 객체만 출력
 
 응답 형식:
