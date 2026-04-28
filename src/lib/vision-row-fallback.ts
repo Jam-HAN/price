@@ -106,6 +106,27 @@ function isWatch(modelCode: string): boolean {
 }
 
 /**
+ * subsidy 단조성 위배 감지 (OCR cell 매핑 오류 의심).
+ *
+ * 정상 패턴: 상위 tier(요금제붐업/I_100) subsidy가 가장 높고 하위로 갈수록 감소.
+ * 이상 케이스: 첫 tier subsidy가 중앙값의 절반 미만 → 다른 컬럼 값이 잘못 매핑됨.
+ *
+ * 예: SM-F741N_512G [100, 100, 580, 523, 430, 380, 289] → median=430, first=100 → 위배.
+ *     LLM fallback으로 재추출 필요.
+ */
+function isSubsidyMonotonicityViolated(model: ParsedModel): boolean {
+  const subsidies = model.tiers
+    .map((t) => t.subsidy_krw)
+    .filter((v): v is number => v != null && v > 0);
+  if (subsidies.length < 4) return false;
+  const sorted = [...subsidies].sort((a, b) => a - b);
+  const median = sorted[Math.floor(sorted.length / 2)];
+  if (median < 50_000) return false; // subsidy가 전반적으로 낮은 모델은 단조성 의미 없음
+  const first = subsidies[0];
+  return first < median * 0.5;
+}
+
+/**
  * 머지된 워치 row의 subsidy를 OCR/LLM 정상값(5만원+) 최빈값으로 최종 통일.
  * correctWatchSubsidyHallucination이 LLM 단계에서 놓친 케이스 보호용.
  */
@@ -164,6 +185,10 @@ function isSuspicious(model: ParsedModel, expectedTierCount: number): { suspicio
   const totalNullCells = commonNullCells + selectNullCells;
   if (totalNullCells >= 2) {
     return { suspicious: true, reason: `null cells ${totalNullCells}개` };
+  }
+  // subsidy 단조성 위배 (OCR cell 매핑 오류 의심)
+  if (isSubsidyMonotonicityViolated(model)) {
+    return { suspicious: true, reason: 'subsidy 단조성 위배' };
   }
   return { suspicious: false };
 }
