@@ -175,10 +175,28 @@ export function parseClovaCheongdam(resp: ClovaResponse): SheetExtraction {
       const retail_price_krw =
         retailRaw != null && retailRaw >= 0 && retailRaw <= 100_000_000 ? retailRaw : null;
 
-      // 워치(SM-Lxxx)는 만원 값이 보통 1~3만원이므로 5 초과는 OCR 오류로 간주
+      // 워치(SM-Lxxx) row는 OCR 컨테미네이션이 잦음.
+      // 같은 row의 모든 tier 만원 값들을 모아 median × 10을 outlier cap으로 사용.
+      // (자의적 임계값이 아닌 row 자체 분포 기반 — 고가 워치도 자동 적응)
       const isWatch = /^SM-L\d/.test(modelCode);
+      let watchCap = Infinity;
+      if (isWatch) {
+        const rowVals: number[] = [];
+        for (const t of TIERS) {
+          const b = anchorCol + t.relOffset;
+          for (let off = 0; off <= 6; off++) {
+            const v = parseManAmountOrNull(grid.get(`${dataRow}|${b + off}`) ?? '');
+            if (v != null) rowVals.push(v);
+          }
+        }
+        if (rowVals.length >= 5) {
+          const sorted = [...rowVals].sort((a, b) => a - b);
+          const median = sorted[Math.floor(sorted.length / 2)];
+          watchCap = Math.max(median * 10, 10); // 최소 cap 10만원 보장
+        }
+      }
       const watchClamp = (v: number | null): number | null =>
-        isWatch && v != null && v > 5 ? null : v;
+        v != null && v > watchCap ? null : v;
 
       const tiers: ModelTier[] = [];
       for (const t of TIERS) {
