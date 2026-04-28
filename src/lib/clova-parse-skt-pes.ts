@@ -64,14 +64,20 @@ function parseChunAmountOrNull(s: string): number | null {
   return n;
 }
 
-const TIERS: Array<{ code: string; baseCol: number }> = [
-  { code: '요금제붐업', baseCol: 4 },
-  { code: 'I_100',      baseCol: 11 },
-  { code: 'F_79',       baseCol: 18 },
-  { code: 'L_69',       baseCol: 25 },
-  { code: 'M_50',       baseCol: 32 },
-  { code: 'R_43',       baseCol: 39 },
-  { code: 'S_33',       baseCol: 46 },
+/**
+ * 각 tier의 anchor(모델코드 컬럼) 기준 상대 오프셋.
+ * 정상 레이아웃: anchor=col 1, 통신구분 col 0, 팻네임 col 2, 출고가 col 3, 요금제붐업 col 4~10, ...
+ *   → 요금제붐업 baseCol=4 = anchor(1) + 3.
+ * CLOVA가 통신구분 컬럼을 검출 못 한 region에서는 anchor=col 0 → baseCol = anchor + 3 = 3.
+ */
+const TIERS: Array<{ code: string; relOffset: number }> = [
+  { code: '요금제붐업', relOffset: 3 },
+  { code: 'I_100',      relOffset: 10 },
+  { code: 'F_79',       relOffset: 17 },
+  { code: 'L_69',       relOffset: 24 },
+  { code: 'M_50',       relOffset: 31 },
+  { code: 'R_43',       relOffset: 38 },
+  { code: 'S_33',       relOffset: 45 },
 ];
 
 export function parseClovaPes(resp: ClovaResponse): SheetExtraction {
@@ -86,30 +92,58 @@ export function parseClovaPes(resp: ClovaResponse): SheetExtraction {
 
   const modelCodeRegex = /^(SM-|UIP|UAW|AT-|IP[A\d]|AIP)/;
 
+  // anchor 컬럼 자동 감지: 모델코드 매치가 가장 많은 leftmost 컬럼.
+  // CLOVA가 region마다 다른 컬럼 구조로 인식해 모델코드가 col 0 또는 col 1에 있을 수 있음.
+  const colMatchCount = new Map<number, number>();
+  for (const c of cells) {
+    const tokens = c.text.trim().split(/\s+/);
+    for (const t of tokens) {
+      if (modelCodeRegex.test(t)) {
+        colMatchCount.set(c.columnIndex, (colMatchCount.get(c.columnIndex) ?? 0) + 1);
+        break;
+      }
+    }
+  }
+  let anchorCol = -1;
+  let bestCount = 0;
+  // leftmost가 우선이지만 매치 수도 충분해야 함 (>=2)
+  const sortedCols = Array.from(colMatchCount.keys()).sort((a, b) => a - b);
+  for (const col of sortedCols) {
+    const cnt = colMatchCount.get(col) ?? 0;
+    if (cnt >= 2 && cnt > bestCount * 0.7) {
+      // leftmost 우선이지만, 우측에 더 많은 매치가 있으면 그쪽 채택
+      if (cnt > bestCount) {
+        anchorCol = col;
+        bestCount = cnt;
+      } else if (anchorCol < 0) {
+        anchorCol = col;
+        bestCount = cnt;
+      }
+    }
+  }
+  if (anchorCol < 0) anchorCol = 1; // fallback
+
   for (let r = 0; r <= maxRow; r++) {
-    const rawCol1 = (grid.get(`${r}|1`) ?? '').trim();
-    if (!rawCol1) continue;
+    const rawAnchor = (grid.get(`${r}|${anchorCol}`) ?? '').trim();
+    if (!rawAnchor) continue;
 
     // 한 셀에 여러 모델코드 (예: "SM-L325N SM-L335N") → 모두 추출
-    const tokens = rawCol1.split(/\s+/).filter((t) => modelCodeRegex.test(t));
+    const tokens = rawAnchor.split(/\s+/).filter((t) => modelCodeRegex.test(t));
     if (tokens.length === 0) continue;
 
     for (let tIdx = 0; tIdx < tokens.length; tIdx++) {
       const modelCode = tokens[tIdx];
-      // 두 번째 이상 토큰: 다음 행이 비었으면 그 행의 tier 데이터 사용 (별도 row),
-      // 아니면 현재 행 데이터 복제 (storage 변종 등)
       let dataRow = r;
       if (tIdx > 0) {
         const candidate = r + tIdx;
         if (candidate <= maxRow) {
-          const candidateCol1 = (grid.get(`${candidate}|1`) ?? '').trim();
-          if (!candidateCol1) dataRow = candidate;
+          const candidateAnchor = (grid.get(`${candidate}|${anchorCol}`) ?? '').trim();
+          if (!candidateAnchor) dataRow = candidate;
         }
       }
 
-      const nickname = (grid.get(`${dataRow}|2`) ?? '').trim();
-      // 출고가: "1,254.0" (천단위) → 1,254,000원. "1.254.0" 오인식도 수용 (숫자만 추출 후 × 1000)
-      const retailRaw = (grid.get(`${dataRow}|3`) ?? '').trim();
+      const nickname = (grid.get(`${dataRow}|${anchorCol + 1}`) ?? '').trim();
+      const retailRaw = (grid.get(`${dataRow}|${anchorCol + 2}`) ?? '').trim();
       const retailThousands = parseNumberOrNull(retailRaw);
       const retailComputed =
         retailThousands != null
@@ -125,7 +159,7 @@ export function parseClovaPes(resp: ClovaResponse): SheetExtraction {
 
       const tiers: ModelTier[] = [];
       for (const t of TIERS) {
-        const b = t.baseCol;
+        const b = anchorCol + t.relOffset;
         const subsidy = parseChunAmountOrNull(grid.get(`${dataRow}|${b}`)     ?? '');
         const c010    = parseManAmountOrNull(grid.get(`${dataRow}|${b + 1}`) ?? '');
         const cMnp    = parseManAmountOrNull(grid.get(`${dataRow}|${b + 2}`) ?? '');

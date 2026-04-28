@@ -49,14 +49,19 @@ function parseManAmountOrNull(s: string): number | null {
   return n;
 }
 
-const TIERS: Array<{ code: string; baseCol: number }> = [
-  { code: '요금제붐업', baseCol: 3 },
-  { code: 'I_100',      baseCol: 10 },
-  { code: 'F_79',       baseCol: 17 },
-  { code: 'L_69',       baseCol: 24 },
-  { code: 'M_50',       baseCol: 31 },
-  { code: 'R_43',       baseCol: 38 },
-  { code: 'S_33',       baseCol: 45 },
+/**
+ * 각 tier의 anchor(모델코드 컬럼) 기준 상대 오프셋.
+ * 청담 정상 레이아웃: anchor=col 0, 팻네임 col 1, 출고가 col 2, 요금제붐업 col 3~9, ...
+ * CLOVA가 region마다 통신구분 같은 부가 컬럼을 검출하면 anchor=col 1 → baseCol = anchor + 3 = 4.
+ */
+const TIERS: Array<{ code: string; relOffset: number }> = [
+  { code: '요금제붐업', relOffset: 3 },
+  { code: 'I_100',      relOffset: 10 },
+  { code: 'F_79',       relOffset: 17 },
+  { code: 'L_69',       relOffset: 24 },
+  { code: 'M_50',       relOffset: 31 },
+  { code: 'R_43',       relOffset: 38 },
+  { code: 'S_33',       relOffset: 45 },
 ];
 
 export function parseClovaCheongdam(resp: ClovaResponse): SheetExtraction {
@@ -71,36 +76,61 @@ export function parseClovaCheongdam(resp: ClovaResponse): SheetExtraction {
 
   const modelCodeRegex = /^(SM-|UIP|UAW|AT-|IP[A\d]|AIP)/;
 
-  for (let r = 0; r <= maxRow; r++) {
-    const rawCol0 = (grid.get(`${r}|0`) ?? '').trim();
-    if (!rawCol0) continue;
+  // anchor 컬럼 자동 감지 (모델코드 매치가 가장 많은 컬럼)
+  const colMatchCount = new Map<number, number>();
+  for (const c of cells) {
+    const tokens = c.text.trim().split(/\s+/);
+    for (const t of tokens) {
+      if (modelCodeRegex.test(t)) {
+        colMatchCount.set(c.columnIndex, (colMatchCount.get(c.columnIndex) ?? 0) + 1);
+        break;
+      }
+    }
+  }
+  let anchorCol = -1;
+  let bestCount = 0;
+  const sortedCols = Array.from(colMatchCount.keys()).sort((a, b) => a - b);
+  for (const col of sortedCols) {
+    const cnt = colMatchCount.get(col) ?? 0;
+    if (cnt >= 2 && cnt > bestCount * 0.7) {
+      if (cnt > bestCount) {
+        anchorCol = col;
+        bestCount = cnt;
+      } else if (anchorCol < 0) {
+        anchorCol = col;
+        bestCount = cnt;
+      }
+    }
+  }
+  if (anchorCol < 0) anchorCol = 0; // fallback (cheongdam 기본)
 
-    // 한 셀에 여러 모델코드 (예: "SM-F741N SM-F741N_512G") → 모두 추출
-    const tokens = rawCol0.split(/\s+/).filter((t) => modelCodeRegex.test(t));
+  for (let r = 0; r <= maxRow; r++) {
+    const rawAnchor = (grid.get(`${r}|${anchorCol}`) ?? '').trim();
+    if (!rawAnchor) continue;
+
+    const tokens = rawAnchor.split(/\s+/).filter((t) => modelCodeRegex.test(t));
     if (tokens.length === 0) continue;
 
     for (let tIdx = 0; tIdx < tokens.length; tIdx++) {
       const modelCode = tokens[tIdx];
-      // 두 번째 이상 토큰: 다음 행 col 0이 비었으면 그 행의 tier 데이터 사용,
-      // 아니면 현재 행 데이터 복제 (storage 변종 등)
       let dataRow = r;
       if (tIdx > 0) {
         const candidate = r + tIdx;
         if (candidate <= maxRow) {
-          const candidateCol0 = (grid.get(`${candidate}|0`) ?? '').trim();
-          if (!candidateCol0) dataRow = candidate;
+          const candidateAnchor = (grid.get(`${candidate}|${anchorCol}`) ?? '').trim();
+          if (!candidateAnchor) dataRow = candidate;
         }
       }
 
-      const nickname = (grid.get(`${dataRow}|1`) ?? '').trim();
-      const retailDigits = (grid.get(`${dataRow}|2`) ?? '').replace(/\D/g, '');
+      const nickname = (grid.get(`${dataRow}|${anchorCol + 1}`) ?? '').trim();
+      const retailDigits = (grid.get(`${dataRow}|${anchorCol + 2}`) ?? '').replace(/\D/g, '');
       const retailRaw = retailDigits ? Number(retailDigits) : null;
       const retail_price_krw =
         retailRaw != null && retailRaw >= 0 && retailRaw <= 100_000_000 ? retailRaw : null;
 
       const tiers: ModelTier[] = [];
       for (const t of TIERS) {
-        const b = t.baseCol;
+        const b = anchorCol + t.relOffset;
         const prime   = parseManAmountOrNull(grid.get(`${dataRow}|${b}`)     ?? '');
         const c010    = parseManAmountOrNull(grid.get(`${dataRow}|${b + 1}`) ?? '');
         const cMnp    = parseManAmountOrNull(grid.get(`${dataRow}|${b + 2}`) ?? '');
