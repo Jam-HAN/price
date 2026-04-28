@@ -57,12 +57,19 @@ function parseNumberOrNull(s: string): number | null {
 
 /**
  * 피에스 파서 전용 sanity check.
- * 공통/선약 만원 단위 raw 값. 정상 0~80, 1000(=1천만원) 초과는 OCR 이상으로 간주 → null.
+ * 공통/선약 만원 단위 raw 값. CLOVA가 OCR에서 소수점을 떨어뜨리는 케이스가 빈번
+ * (예: "33.3" → "333", "48.0" → "480", "1.5" → "15") → 100배 부풀려진 값 발생.
+ *
+ * 휴리스틱: 100 초과 + 10의 배수면 소수점 누락으로 간주 → /10 보정.
+ * (100 이상 정상 값은 11, 17, 23 등 10의 배수 아닌 raw로 들어와 보호됨)
+ *
+ * 1000 초과는 두 자리 누락이거나 셀 합쳐짐 등 명백 오류 → null.
  */
 function parseManAmountOrNull(s: string): number | null {
   const n = parseNumberOrNull(s);
   if (n == null) return null;
   if (n < 0 || n > 1000) return null;
+  if (n > 100 && n % 10 === 0) return n / 10;
   return n;
 }
 
