@@ -238,6 +238,9 @@ async function handle(req: Request) {
         models: [],
         policies: [],
       };
+      // dedup: 같은 model_code_raw가 여러 region에서 잡히면 첫 번째만 유지.
+      // 인접 region 경계 overlap으로 같은 모델이 두 region에 모두 추출될 수 있음.
+      const seenModelCodes = new Set<string>();
       regionsDebug = [];
       for (const region of effectiveCrop.regions) {
         const subSpec: CropSpec = {
@@ -281,7 +284,18 @@ async function handle(req: Request) {
           timestamp: Date.now(),
           images: [regionImg],
         });
-        merged.models.push(...regionParsed.models);
+        let dedupedCount = 0;
+        for (const m of regionParsed.models) {
+          if (seenModelCodes.has(m.model_code_raw)) {
+            dedupedCount++;
+            continue;
+          }
+          seenModelCodes.add(m.model_code_raw);
+          merged.models.push(m);
+        }
+        if (dedupedCount > 0) {
+          console.log(`[regions] ${region.name}: ${dedupedCount} duplicate model(s) skipped`);
+        }
         merged.policies.push(...regionParsed.policies);
         if (regionParsed.policy_round && !merged.policy_round) {
           merged.policy_round = regionParsed.policy_round;
