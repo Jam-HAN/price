@@ -88,67 +88,84 @@ export function parseClovaCheongdam(resp: ClovaResponse): SheetExtraction {
 
   const models: ParsedModel[] = [];
 
+  const modelCodeRegex = /^(SM-|UIP|UAW|AT-|IP[A\d]|AIP)/;
+
   for (let r = 0; r <= maxRow; r++) {
-    // OCR이 인접 행 모델코드를 한 셀에 합쳐서 내놓는 경우(e.g., "SM-F741N SM-F741N_512G")
-    // 첫 토큰만 채택
-    const modelCode = (grid.get(`${r}|0`) ?? '').trim().split(/\s+/)[0];
-    if (!/^(SM-|UIP|UAW|AT-|IP[A\d]|AIP)/.test(modelCode)) continue;
+    const rawCol0 = (grid.get(`${r}|0`) ?? '').trim();
+    if (!rawCol0) continue;
 
-    const nickname = (grid.get(`${r}|1`) ?? '').trim();
-    const retailDigits = (grid.get(`${r}|2`) ?? '').replace(/\D/g, '');
-    const retailRaw = retailDigits ? Number(retailDigits) : null;
-    // 출고가 sanity: 0~1000만원 범위 (1억 초과는 OCR 오류로 간주). 보수적으로 0이면 0 유지.
-    const retail_price_krw =
-      retailRaw != null && retailRaw >= 0 && retailRaw <= 100_000_000 ? retailRaw : null;
+    // 한 셀에 여러 모델코드 (예: "SM-F741N SM-F741N_512G") → 모두 추출
+    const tokens = rawCol0.split(/\s+/).filter((t) => modelCodeRegex.test(t));
+    if (tokens.length === 0) continue;
 
-    const tiers: ModelTier[] = [];
-    for (const t of TIERS) {
-      const b = t.baseCol;
-      const prime   = parseManAmountOrNull(grid.get(`${r}|${b}`)     ?? '');
-      const c010    = parseManAmountOrNull(grid.get(`${r}|${b + 1}`) ?? '');
-      const cMnp    = parseManAmountOrNull(grid.get(`${r}|${b + 2}`) ?? '');
-      const cChange = parseManAmountOrNull(grid.get(`${r}|${b + 3}`) ?? '');
-      const s010    = parseManAmountOrNull(grid.get(`${r}|${b + 4}`) ?? '');
-      const sMnp    = parseManAmountOrNull(grid.get(`${r}|${b + 5}`) ?? '');
-      const sChange = parseManAmountOrNull(grid.get(`${r}|${b + 6}`) ?? '');
+    for (let tIdx = 0; tIdx < tokens.length; tIdx++) {
+      const modelCode = tokens[tIdx];
+      // 두 번째 이상 토큰: 다음 행 col 0이 비었으면 그 행의 tier 데이터 사용,
+      // 아니면 현재 행 데이터 복제 (storage 변종 등)
+      let dataRow = r;
+      if (tIdx > 0) {
+        const candidate = r + tIdx;
+        if (candidate <= maxRow) {
+          const candidateCol0 = (grid.get(`${candidate}|0`) ?? '').trim();
+          if (!candidateCol0) dataRow = candidate;
+        }
+      }
 
-      const common =
-        c010 == null && cMnp == null && cChange == null
-          ? null
-          : {
-              new010: c010 != null ? Math.round(c010 * 10_000) : null,
-              mnp: cMnp != null ? Math.round(cMnp * 10_000) : null,
-              change: cChange != null ? Math.round(cChange * 10_000) : null,
-            };
-      const select =
-        s010 == null && sMnp == null && sChange == null
-          ? null
-          : {
-              new010: s010 != null ? Math.round(s010 * 10_000) : null,
-              mnp: sMnp != null ? Math.round(sMnp * 10_000) : null,
-              change: sChange != null ? Math.round(sChange * 10_000) : null,
-            };
+      const nickname = (grid.get(`${dataRow}|1`) ?? '').trim();
+      const retailDigits = (grid.get(`${dataRow}|2`) ?? '').replace(/\D/g, '');
+      const retailRaw = retailDigits ? Number(retailDigits) : null;
+      const retail_price_krw =
+        retailRaw != null && retailRaw >= 0 && retailRaw <= 100_000_000 ? retailRaw : null;
 
-      if (prime == null && common == null && select == null) continue;
+      const tiers: ModelTier[] = [];
+      for (const t of TIERS) {
+        const b = t.baseCol;
+        const prime   = parseManAmountOrNull(grid.get(`${dataRow}|${b}`)     ?? '');
+        const c010    = parseManAmountOrNull(grid.get(`${dataRow}|${b + 1}`) ?? '');
+        const cMnp    = parseManAmountOrNull(grid.get(`${dataRow}|${b + 2}`) ?? '');
+        const cChange = parseManAmountOrNull(grid.get(`${dataRow}|${b + 3}`) ?? '');
+        const s010    = parseManAmountOrNull(grid.get(`${dataRow}|${b + 4}`) ?? '');
+        const sMnp    = parseManAmountOrNull(grid.get(`${dataRow}|${b + 5}`) ?? '');
+        const sChange = parseManAmountOrNull(grid.get(`${dataRow}|${b + 6}`) ?? '');
 
-      tiers.push({
-        plan_tier_code: t.code,
-        subsidy_krw: prime != null ? Math.round(prime * 10_000) : null,
-        common,
-        select,
+        const common =
+          c010 == null && cMnp == null && cChange == null
+            ? null
+            : {
+                new010: c010 != null ? Math.round(c010 * 10_000) : null,
+                mnp: cMnp != null ? Math.round(cMnp * 10_000) : null,
+                change: cChange != null ? Math.round(cChange * 10_000) : null,
+              };
+        const select =
+          s010 == null && sMnp == null && sChange == null
+            ? null
+            : {
+                new010: s010 != null ? Math.round(s010 * 10_000) : null,
+                mnp: sMnp != null ? Math.round(sMnp * 10_000) : null,
+                change: sChange != null ? Math.round(sChange * 10_000) : null,
+              };
+
+        if (prime == null && common == null && select == null) continue;
+
+        tiers.push({
+          plan_tier_code: t.code,
+          subsidy_krw: prime != null ? Math.round(prime * 10_000) : null,
+          common,
+          select,
+        });
+      }
+
+      if (tiers.length === 0) continue;
+
+      models.push({
+        model_code_raw: modelCode,
+        nickname,
+        storage: null,
+        retail_price_krw: retail_price_krw ?? 0,
+        is_new: false,
+        tiers,
       });
     }
-
-    if (tiers.length === 0) continue;
-
-    models.push({
-      model_code_raw: modelCode,
-      nickname,
-      storage: null,
-      retail_price_krw: retail_price_krw ?? 0,
-      is_new: false,
-      tiers,
-    });
   }
 
   return {

@@ -1,20 +1,18 @@
 /**
- * SKT 청담 시트의 정책/공시 영역 파서 (placeholder).
- *
- * regions 모드에서 model_table 영역과 분리해 정책·공시지원금·effective_date 등을 별도 파싱하기 위한 파서.
- *
- * 현재 구현은 placeholder — 빈 결과를 반환.
- * 실제 정책 영역 OCR 결과(`_regions_debug.policy.sampleCells`)를 보고 작성 예정.
+ * SKT 청담 시트 정책 영역 파서.
+ * 정책 차수 / 적용 일시 / 적용 시간 추출 (clova-parse-skt-policy-utils 공유).
  */
 
 import type { ClovaResponse } from './clova-ocr';
 import type { SheetExtraction } from './vision-schema';
+import { extractSktPolicyMeta } from './clova-parse-skt-policy-utils';
 
-export function parseClovaCheongdamPolicy(_resp: ClovaResponse): SheetExtraction {
+export function parseClovaCheongdamPolicy(resp: ClovaResponse): SheetExtraction {
+  const meta = extractSktPolicyMeta(resp);
   return {
-    policy_round: null,
-    effective_date: null,
-    effective_time: null,
+    policy_round: meta.policy_round,
+    effective_date: meta.effective_date,
+    effective_time: meta.effective_time,
     models: [],
     policies: [],
   };
