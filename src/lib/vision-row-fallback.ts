@@ -481,7 +481,7 @@ function buildPrompt(modelCode: string, nickname: string, config: VendorConfig):
 }`;
   }
 
-  // LGU/KT: 4개 셀 [공시 + 공통3], 선약 컬럼 없음
+  // LGU/KT: 약정 구분 없는 단일 단가 — [공시 + 010/MNP/기변]
   const exampleTier = `{"plan": "${config.tierCodes[0]}", "subsidy": <number|null>, "common": [<010|null>, <MNP|null>, <기변|null>]}`;
   return `이 이미지는 ${config.carrierLabel} 단가표의 한 행(row)이다.
 모델: ${modelCode}${nickname ? ` (${nickname})` : ''}
@@ -489,15 +489,18 @@ function buildPrompt(modelCode: string, nickname: string, config: VendorConfig):
 이 행에 ${config.tierCodes.length}개 요금제 구간이 왼쪽→오른쪽 순서로 배치되어 있다.
 구간 순서: ${tierList}
 
-각 구간은 4개 셀 [공시지원금, 010 신규, MNP, 기변] (선택약정 컬럼 없음):
+각 구간은 [공시지원금, 010 신규, MNP, 기변] 4개 cell이다.
+이 vendor는 **공통지원금 / 선택약정 구분 없음** — 약정 무관 단일 단가 1세트만 존재.
+
 - 공시지원금: ${subsidyDesc} (이미지에 공시 컬럼이 없으면 null)
-- 010/MNP/기변: 만원 단위
+- 010/MNP/기변: 약정 무관 단가 (만원 단위)
 
 중요:
 1) 빈 셀, "-", "·", "0"은 모두 null로 처리
 2) 숫자는 이미지에 보이는 그대로 (단위 변환 금지)
 3) 셀 간 구분 모호하면 추측 말고 null
 4) 추가 설명/마크다운 없이 JSON 객체만 출력
+5) JSON의 common 키에 단가 3개 입력, select는 출력하지 말 것
 
 응답 형식:
 {
