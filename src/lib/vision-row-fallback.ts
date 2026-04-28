@@ -146,6 +146,64 @@ function isSuspicious(model: ParsedModel, expectedTierCount: number): { suspicio
 }
 
 /**
+ * LLM 결과와 원본 OCR 결과를 cell 단위로 머지.
+ *
+ * 정책:
+ *  - LLM이 null이면 OCR 값 유지 (LLM이 못 읽었어도 OCR이 본 값 보존)
+ *  - LLM 값 + OCR null → LLM 값 사용 (LLM이 채운 cell)
+ *  - 둘 다 값 있으면 LLM 우선. 단 10배 이상 차이는 LLM 환각으로 간주 → OCR 유지
+ *
+ * 효과: LLM은 enhancer로만 동작. OCR이 잘 잡은 cell은 절대 잃지 않음.
+ */
+function mergeLlmIntoOcr(ocrTiers: ModelTier[], llmTiers: ModelTier[]): ModelTier[] {
+  const ocrByPlan = new Map(ocrTiers.map((t) => [t.plan_tier_code, t]));
+  const result: ModelTier[] = [];
+
+  const mergeCell = (l: number | null, o: number | null): number | null => {
+    if (l == null) return o;
+    if (o == null) return l;
+    // 10배 이상 차이는 LLM 환각으로 간주
+    const lo = Math.min(l, o);
+    const hi = Math.max(l, o);
+    if (lo > 0 && hi >= lo * 10) return o;
+    return l;
+  };
+
+  const mergeQuote = (l: TierQuote | null, o: TierQuote | null): TierQuote | null => {
+    if (l == null && o == null) return null;
+    if (l == null) return o;
+    if (o == null) return l;
+    return {
+      new010: mergeCell(l.new010, o.new010),
+      mnp: mergeCell(l.mnp, o.mnp),
+      change: mergeCell(l.change, o.change),
+    };
+  };
+
+  for (const llm of llmTiers) {
+    const ocr = ocrByPlan.get(llm.plan_tier_code);
+    if (!ocr) {
+      result.push(llm);
+      continue;
+    }
+    result.push({
+      plan_tier_code: llm.plan_tier_code,
+      subsidy_krw: mergeCell(llm.subsidy_krw, ocr.subsidy_krw),
+      common: mergeQuote(llm.common, ocr.common),
+      select: mergeQuote(llm.select, ocr.select),
+    });
+  }
+
+  // OCR에만 있는 tier도 보존
+  const llmPlans = new Set(llmTiers.map((t) => t.plan_tier_code));
+  for (const ocr of ocrTiers) {
+    if (!llmPlans.has(ocr.plan_tier_code)) result.push(ocr);
+  }
+
+  return result;
+}
+
+/**
  * 워치 subsidy 교호 환각 보정.
  * SM-L705NB 케이스: LLM이 "tier마다 subsidy 다름" 추론 → 300/150/300/150 패턴 환각.
  * 실제 워치는 모든 tier subsidy 동일.
@@ -435,11 +493,13 @@ export async function applyVisionFallback(params: {
         if (!llmTiers || llmTiers.length === 0) {
           return { job, ok: false, reason: 'LLM JSON parse failed' };
         }
-        const rawNewTiers = llmTiersToModelTiers(llmTiers, config);
-        if (rawNewTiers.length === 0) {
+        const rawLlmTiers = llmTiersToModelTiers(llmTiers, config);
+        if (rawLlmTiers.length === 0) {
           return { job, ok: false, reason: 'all tiers empty after parse' };
         }
-        const newTiers = correctWatchSubsidyHallucination(job.model.model_code_raw, rawNewTiers);
+        const correctedLlmTiers = correctWatchSubsidyHallucination(job.model.model_code_raw, rawLlmTiers);
+        // LLM 결과를 OCR 결과에 cell 단위로 머지 (LLM null → OCR 유지, 10x 차이 → OCR 유지)
+        const newTiers = mergeLlmIntoOcr(job.model.tiers, correctedLlmTiers);
         return { job, ok: true, newTiers };
       }),
     );
