@@ -33,7 +33,7 @@ const LGU_GROUP_TO_TIER: Record<number, string> = {
   7: 'G33',
 };
 
-import { extractCellsRemapped, type Cell } from './clova-cells-utils';
+import { extractCells, type Cell } from './clova-cells-utils';
 
 function toGrid(cells: Cell[]): Map<string, string> {
   const m = new Map<string, string>();
@@ -61,7 +61,7 @@ function parseNumberOrNull(s: string): number | null {
  * 헤더 행(대개 row 0~4) 스킵하고 col 0 에 모델코드가 있는 행부터 데이터 행으로 간주.
  */
 export function parseClovaLGU(resp: ClovaResponse): SheetExtraction {
-  const cells = extractCellsRemapped(resp);
+  const cells = extractCells(resp);
   const grid = toGrid(cells);
 
   // 그리드의 최대 행/열 파악

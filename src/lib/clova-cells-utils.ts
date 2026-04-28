@@ -105,8 +105,29 @@ function assignToColumn(x: number, reps: number[]): number {
 }
 
 /**
- * CLOVA tables[0].cells에서 cells 추출 + 좌표 기반 column 재매핑.
- * boundingPoly 없으면 원본 columnIndex로 fallback.
+ * CLOVA tables[0].cells에서 cells 추출 (원본 columnIndex 유지).
+ * 단일 CLOVA 호출에서는 columnIndex가 이미 시각적 컬럼과 일치하므로 remap 불필요.
+ *
+ * 모든 거래처별 단일호출 파서가 사용하는 표준 진입점.
+ */
+export function extractCells(resp: ClovaResponse): Cell[] {
+  const img = resp.images?.[0];
+  if (!img) return [];
+  const tables = (img as unknown as { tables?: Array<{ cells: RawCell[] }> }).tables;
+  if (!tables || !tables[0]) return [];
+  return tables[0].cells.map((c) => ({
+    rowIndex: c.rowIndex,
+    columnIndex: c.columnIndex,
+    text: extractCellText(c),
+  }));
+}
+
+/**
+ * **타일 모드 전용** 좌표 기반 column 재매핑.
+ *
+ * 여러 CLOVA 호출 결과를 합칠 때(tile mode) 각 tile의 columnIndex가 서로 다른 인덱스
+ * 체계를 갖기 때문에 origX 좌표로 재정렬 필요. 단일 호출에는 사용하지 말 것 — 빈 컬럼이
+ * 있는 시트에서 K가 잘못 추정되어 cell 위치를 압축시킴.
  */
 export function extractCellsRemapped(resp: ClovaResponse): Cell[] {
   const img = resp.images?.[0];

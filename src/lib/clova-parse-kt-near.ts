@@ -22,7 +22,7 @@
 
 import type { ClovaResponse } from './clova-ocr';
 import type { SheetExtraction, ParsedModel, ModelTier } from './vision-schema';
-import { extractCellsRemapped, type Cell } from './clova-cells-utils';
+import { extractCells, type Cell } from './clova-cells-utils';
 
 function parseNumberOrNull(s: string): number | null {
   if (!s) return null;
@@ -47,7 +47,7 @@ const GROUPS: Array<{
 ];
 
 export function parseClovaNear(resp: ClovaResponse): SheetExtraction {
-  const cells = extractCellsRemapped(resp);
+  const cells = extractCells(resp);
   const grid = new Map<string, string>();
   for (const c of cells) grid.set(`${c.rowIndex}|${c.columnIndex}`, c.text);
 
