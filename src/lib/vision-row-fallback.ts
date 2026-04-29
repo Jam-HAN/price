@@ -686,6 +686,29 @@ export async function applyVisionFallback(params: {
     }
   }
 
+  // 마지막 outlier sanitize: 모든 모델의 모든 cell value > 150만원이면 null.
+  // OCR/LLM 둘 다 합쳐서 인식한 비정상 값(예: 50억원=cell 합쳐짐) 최종 차단.
+  const SANITIZE_THRESHOLD = 1_500_000;
+  const sanitizeQuote = (q: TierQuote | null): TierQuote | null => {
+    if (q == null) return null;
+    return {
+      new010: q.new010 != null && q.new010 > SANITIZE_THRESHOLD ? null : q.new010,
+      mnp: q.mnp != null && q.mnp > SANITIZE_THRESHOLD ? null : q.mnp,
+      change: q.change != null && q.change > SANITIZE_THRESHOLD ? null : q.change,
+    };
+  };
+  for (let i = 0; i < updatedModels.length; i++) {
+    const m = updatedModels[i];
+    let dirty = false;
+    const newTiers = m.tiers.map((t) => {
+      const newCommon = sanitizeQuote(t.common);
+      const newSelect = sanitizeQuote(t.select);
+      if (newCommon !== t.common || newSelect !== t.select) dirty = true;
+      return { ...t, common: newCommon, select: newSelect };
+    });
+    if (dirty) updatedModels[i] = { ...m, tiers: newTiers };
+  }
+
   return {
     parsed: { ...params.parsed, models: updatedModels },
     fallbackCount,
