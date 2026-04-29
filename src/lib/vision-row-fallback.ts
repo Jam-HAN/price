@@ -247,9 +247,14 @@ function mergeLlmIntoOcr(ocrTiers: ModelTier[], llmTiers: ModelTier[]): ModelTie
   const ocrByPlan = new Map(ocrTiers.map((t) => [t.plan_tier_code, t]));
   const result: ModelTier[] = [];
 
+  const OUTLIER_THRESHOLD = 1_500_000; // 150만원 초과는 비현실적 cell 값
   const mergeCell = (l: number | null, o: number | null): number | null => {
     if (l == null) return o;
     if (o == null) return l;
+    // OCR이 outlier (>150만원)면 OCR 무시하고 LLM 우선 (단위/매핑 환각 의심)
+    if (o > OUTLIER_THRESHOLD && l <= OUTLIER_THRESHOLD) return l;
+    // LLM이 outlier면 LLM 무시하고 OCR 우선
+    if (l > OUTLIER_THRESHOLD && o <= OUTLIER_THRESHOLD) return o;
     // 10배 이상 차이는 LLM 환각으로 간주
     const lo = Math.min(l, o);
     const hi = Math.max(l, o);
