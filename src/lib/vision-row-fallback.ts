@@ -673,6 +673,19 @@ export async function applyVisionFallback(params: {
     }
   }
 
+  // 모든 워치 모델에 subsidy 통일 적용 (fallback 성공/실패 무관).
+  // LLM 호출 실패해서 OCR 결과 그대로인 워치도 도메인 지식상 subsidy 동일이라
+  // outlier(예: 24000원, 19000원)를 정상값으로 통일.
+  for (let i = 0; i < updatedModels.length; i++) {
+    const m = updatedModels[i];
+    if (isWatch(m.model_code_raw, m.nickname)) {
+      const unified = unifyWatchSubsidies(m.model_code_raw, m.nickname, m.tiers);
+      if (unified !== m.tiers) {
+        updatedModels[i] = { ...m, tiers: unified };
+      }
+    }
+  }
+
   return {
     parsed: { ...params.parsed, models: updatedModels },
     fallbackCount,
