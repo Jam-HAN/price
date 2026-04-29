@@ -159,7 +159,8 @@ function unifyWatchSubsidies(modelCode: string, nickname: string, tiers: ModelTi
   const validSubsidies = tiers
     .map((t) => t.subsidy_krw)
     .filter((v): v is number => v != null && v >= 50_000);
-  if (validSubsidies.length < 2) return tiers;
+  // 워치는 모든 tier subsidy 동일이라는 도메인 지식 → valid 1개만 있어도 그것으로 통일
+  if (validSubsidies.length < 1) return tiers;
   const counts = new Map<number, number>();
   for (const v of validSubsidies) counts.set(v, (counts.get(v) ?? 0) + 1);
   let mode = validSubsidies[0];
@@ -249,12 +250,15 @@ function mergeLlmIntoOcr(ocrTiers: ModelTier[], llmTiers: ModelTier[]): ModelTie
 
   const OUTLIER_THRESHOLD = 1_500_000; // 150만원 초과는 비현실적 cell 값
   const mergeCell = (l: number | null, o: number | null): number | null => {
+    const ocrIsOutlier = o != null && o > OUTLIER_THRESHOLD;
+    const llmIsOutlier = l != null && l > OUTLIER_THRESHOLD;
+    // OCR이 outlier면: LLM 정상 → LLM, LLM도 outlier/null → null (잘못된 큰 값보다 nul이 안전)
+    if (ocrIsOutlier) return llmIsOutlier ? null : l;
+    // LLM이 outlier면 무시하고 OCR
+    if (llmIsOutlier) return o;
+    // 둘 다 정상 또는 null
     if (l == null) return o;
     if (o == null) return l;
-    // OCR이 outlier (>150만원)면 OCR 무시하고 LLM 우선 (단위/매핑 환각 의심)
-    if (o > OUTLIER_THRESHOLD && l <= OUTLIER_THRESHOLD) return l;
-    // LLM이 outlier면 LLM 무시하고 OCR 우선
-    if (l > OUTLIER_THRESHOLD && o <= OUTLIER_THRESHOLD) return o;
     // 10배 이상 차이는 LLM 환각으로 간주
     const lo = Math.min(l, o);
     const hi = Math.max(l, o);
